@@ -5,8 +5,14 @@
 
 Your pinned repositories (or, if you have none pinned, your newest public ones)
 sit on a dashed line in the order they were created, alternating above and below
-it. A glowing line travels from left to right and each project pops in as the
-line reaches it. The card holds for a few seconds, fades and plays again.
+it. Only the project name is written. A glowing line travels from left to right
+and each project pops in as the line reaches it. The card holds for a few seconds,
+fades and plays again.
+
+How many repositories are shown?
+  At most MAX_REPOS (default 8). If you have more, only the pinned ones are used
+  (GitHub allows 6 pins), or the newest ones when nothing is pinned. The rest are
+  simply not drawn, so the card never gets crowded.
 
 Usage:
   GITHUB_TOKEN=... GITHUB_USER=yourname python generate_timeline.py   # real data
@@ -23,10 +29,10 @@ OUT = "assets/project-timeline.svg"
 
 W = 782                 # same width as the other cards
 GRID_X = 48
-MAX_REPOS = 5
-LINE_Y = 192            # y of the timeline
+MAX_REPOS = 8           # most projects drawn on the line (8 fits comfortably)
+LINE_Y = 150            # y of the timeline
 RING_R = 16
-H = LINE_Y + 162
+H = LINE_Y + 130
 
 # ---- banner colors, used for the card background / frame / traveling line ----
 STOPS = [(0.0, "#ff4fb8"), (0.35, "#c04ee8"), (0.65, "#7a5cf5"), (1.0, "#1f6bff")]
@@ -41,8 +47,6 @@ OVERRIDES = {
     "TypeScript": "#4a90d9",
 }
 DEFAULT_COLOR = "#8b949e"
-DEFAULT_DESC = "Public work in motion."
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 # ---- timing (seconds) ----
 LINE_START = 0.5        # the traveling line starts after this
@@ -67,10 +71,10 @@ def visible(color):
 
 # ---------------- data ----------------
 def fetch(user, token):
-    frag = "name description createdAt stargazerCount primaryLanguage{name color}"
+    frag = "name createdAt primaryLanguage{name color}"
     query = ("query($login:String!){user(login:$login){"
              "pinnedItems(first:6,types:REPOSITORY){nodes{... on Repository{%s}}}"
-             "repositories(first:12,ownerAffiliations:OWNER,privacy:PUBLIC,"
+             "repositories(first:20,ownerAffiliations:OWNER,isFork:false,privacy:PUBLIC,"
              "orderBy:{field:CREATED_AT,direction:DESC}){nodes{%s}}}}") % (frag, frag)
     req = urllib.request.Request(
         "https://api.github.com/graphql",
@@ -89,34 +93,28 @@ def fetch(user, token):
 
     pinned = [n for n in u["pinnedItems"]["nodes"] if n and n.get("name")]
     if pinned:
-        repos = pinned[:MAX_REPOS]
+        repos, kind = pinned[:MAX_REPOS], "featured"
     else:  # nothing pinned: newest repos, without the profile repo itself
         recent = [n for n in u["repositories"]["nodes"] if n["name"].lower() != user.lower()]
-        repos = recent[:MAX_REPOS]
+        repos, kind = recent[:MAX_REPOS], "newest"
 
     items = []
     for n in sorted(repos, key=lambda x: x["createdAt"]):
         lang = n.get("primaryLanguage") or {}
         items.append({
             "name": n["name"],
-            "desc": (n.get("description") or "").strip() or DEFAULT_DESC,
-            "created": n["createdAt"][:10],
             "lang": lang.get("name"),
             "color": lang.get("color") or DEFAULT_COLOR,
-            "stars": n.get("stargazerCount", 0),
         })
-    return items
+    return items, kind
 
 
 def demo():
     return [
-        {"name": "mohammadmahdighaedamin", "desc": "Public work in motion.", "created": "2026-10-01",
-         "lang": "Python", "color": "#3572A5", "stars": 0},
-        {"name": "proxy-extension", "desc": "Public work in motion.", "created": "2026-10-02",
-         "lang": "JavaScript", "color": "#f1e05a", "stars": 0},
-        {"name": "widgetpanel", "desc": "Lightweight desktop widget panel for Windows",
-         "created": "2026-10-03", "lang": "HTML", "color": "#e34c26", "stars": 0},
-    ]
+        {"name": "mohammadmahdighaedamin", "lang": "Python", "color": "#3572A5"},
+        {"name": "proxy-extension", "lang": "JavaScript", "color": "#f1e05a"},
+        {"name": "widgetpanel", "lang": "HTML", "color": "#e34c26"},
+    ], "featured"
 
 
 # ---------------- svg helpers ----------------
@@ -151,20 +149,12 @@ def clip(text, max_chars):
     return text if len(text) <= max_chars else text[:max(1, max_chars - 1)].rstrip() + "…"
 
 
-def date_label(i, iso):
-    y, m, _ = iso.split("-")
-    return f"{i + 1:02d} / {MONTHS[int(m) - 1]} {y}"
-
-
-def stars_label(n):
-    return f"{n} star" + ("" if n == 1 else "s")
-
-
-def build(items):
+def build(items, kind="featured"):
     n = len(items)
     x0, x1 = GRID_X, W - GRID_X
     span = x1 - x0
     spacing = span / max(1, n)
+    ring = min(RING_R, spacing * 0.36)          # rings shrink if the line gets crowded
     T = LINE_START + LINE_DUR + 0.8 + HOLD + FADE
     font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
     mono = "Consolas, 'SF Mono', Menlo, monospace"
@@ -233,12 +223,9 @@ def build(items):
         color = visible(OVERRIDES.get(it["lang"], it["color"]))
         above = i % 2 == 0
 
-        # keep text inside the card and away from the neighbours on the same side
+        # keep the name inside the card and away from the neighbours on the same side
         half = min(x - 40, W - 40 - x, spacing * 0.95)
-        name = clip(it["name"], max(8, int(2 * half / 8.2)))
-        desc = clip(it["desc"] or DEFAULT_DESC, max(10, int(2 * half / 6.3)))
-        stats = f'{it["lang"] or "Repository"} · {stars_label(it["stars"])}'
-        stats = clip(stats, max(10, int(2 * half / 6.6)))
+        name = clip(it["name"], max(6, int(2 * half / 8.2)))
 
         # node: dashed ring + soft core + a ping, pops in when the line arrives
         a(f'<g transform="translate({fmt(x)},{LINE_Y})" opacity="0">')
@@ -246,39 +233,29 @@ def build(items):
           f'values="0.5;0.5;1;1" keyTimes="{key_times([0, ti, ti + 0.5, T], T)}" calcMode="spline" '
           f'keySplines="0 0 1 1;0.2 0.7 0.3 1;0 0 1 1" dur="{T:.3f}s" repeatCount="indefinite"/>')
         a(anim("opacity", [0, 0, 1, 1], [0, ti, ti + 0.3, T], T))
-        a(f'<circle r="12" fill="none" stroke="{color}" stroke-width="1.2" opacity="0">'
-          f'<animate attributeName="r" values="12;27" dur="2.6s" repeatCount="indefinite"/>'
+        a(f'<circle r="{fmt(ring * 0.75)}" fill="none" stroke="{color}" stroke-width="1.2" opacity="0">'
+          f'<animate attributeName="r" values="{fmt(ring * 0.75)};{fmt(ring * 1.65)}" dur="2.6s" repeatCount="indefinite"/>'
           f'<animate attributeName="opacity" values="0.6;0" dur="2.6s" repeatCount="indefinite"/></circle>')
-        a(f'<circle r="{RING_R}" fill="#07030f" fill-opacity=".7"/>')
-        a(f'<circle r="{RING_R}" fill="none" stroke="{color}" stroke-width="1.6" stroke-dasharray="4 3.4" '
+        a(f'<circle r="{fmt(ring)}" fill="#07030f" fill-opacity=".7"/>')
+        a(f'<circle r="{fmt(ring)}" fill="none" stroke="{color}" stroke-width="1.6" stroke-dasharray="4 3.4" '
           f'stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" '
           f'values="0;360" dur="14s" repeatCount="indefinite"/></circle>')
-        a(f'<circle r="10.5" fill="{color}" fill-opacity=".22"/>')
-        a(f'<circle r="4" fill="{color}" filter="url(#glow)"/>')
+        a(f'<circle r="{fmt(ring * 0.66)}" fill="{color}" fill-opacity=".22"/>')
+        a(f'<circle r="{fmt(max(2.4, ring * 0.25))}" fill="{color}" filter="url(#glow)"/>')
         a("</g>")
 
-        # text block, fades in right after the node
-        if above:
-            ys = {"date": LINE_Y - 80, "name": LINE_Y - 62, "desc": LINE_Y - 45, "stats": LINE_Y - 29}
-        else:
-            ys = {"name": LINE_Y + 38, "desc": LINE_Y + 55, "stats": LINE_Y + 71, "date": LINE_Y + 88}
+        # project name only, fades in right after the node
+        y = LINE_Y - 30 if above else LINE_Y + 44
         a('<g opacity="0">')
         a(anim("opacity", [0, 0, 1, 1], [0, ti + 0.2, ti + 0.7, T], T))
-        t = f'x="{fmt(x)}" text-anchor="middle"'
-        a(f'<text {t} y="{ys["date"]}" font-family="{mono}" font-size="9.5" letter-spacing=".6" '
-          f'fill="#ffffff" fill-opacity=".7">{date_label(i, it["created"])}</text>')
-        a(f'<text {t} y="{ys["name"]}" font-family="{mono}" font-size="13" font-weight="700" '
-          f'fill="#ffffff">{html.escape(name)}</text>')
-        a(f'<text {t} y="{ys["desc"]}" font-family="{font}" font-size="11" fill="#ffffff" '
-          f'fill-opacity=".8">{html.escape(desc)}</text>')
-        a(f'<text {t} y="{ys["stats"]}" font-family="{mono}" font-size="10" font-weight="700" '
-          f'fill="{color}">{html.escape(stats)}</text>')
+        a(f'<text x="{fmt(x)}" y="{y}" text-anchor="middle" font-family="{mono}" font-size="13" '
+          f'font-weight="700" fill="#ffffff">{html.escape(name)}</text>')
         a("</g>")
 
     # footer
     if items:
-        a(f'<text x="{GRID_X}" y="{LINE_Y + 116}" font-family="{font}" font-size="11" fill="#ffffff" '
-          f'fill-opacity=".75">{n} featured repositor{"y" if n == 1 else "ies"} · '
+        a(f'<text x="{GRID_X}" y="{LINE_Y + 84}" font-family="{font}" font-size="11" fill="#ffffff" '
+          f'fill-opacity=".75">{n} {kind} repositor{"y" if n == 1 else "ies"} · '
           f'follow the line from first signal to latest motion</text>')
 
     a("</g>")
@@ -288,16 +265,16 @@ def build(items):
 
 def main():
     if "--demo" in sys.argv:
-        items = demo()
+        items, kind = demo()
     else:
         user = os.environ.get("GITHUB_USER")
         token = os.environ.get("GITHUB_TOKEN")
         if not user or not token:
             sys.exit("Set GITHUB_USER and GITHUB_TOKEN, or run with --demo")
-        items = fetch(user, token)
+        items, kind = fetch(user, token)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:
-        fh.write(build(items))
+        fh.write(build(items, kind))
     print(f"wrote {OUT}")
 
 
