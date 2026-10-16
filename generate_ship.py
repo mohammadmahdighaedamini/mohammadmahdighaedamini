@@ -4,8 +4,9 @@ Animated "Jet Runner" contribution card, themed after the Nightmare neon banner
 (pink -> purple -> blue on a dark maroon / navy background).
 
 - A glowing beam sweeps quickly left -> right and opens the contribution graph.
-- Each column of days lifts up in 3D as the beam passes, then lands and stays still.
-- A small jet slowly flies left -> right underneath and shoots every active day.
+  Days right behind the beam are small and dim, then grow to full size and settle.
+- An F-35 slowly flies left -> right underneath and shoots every active day;
+  a shot day explodes and is removed.
 
 Usage:
   GITHUB_TOKEN=... GITHUB_USER=yourname python generate_ship.py   # real data
@@ -28,11 +29,12 @@ GRID_Y = 108
 GRID_H = ROWS * P - GAP
 SHIP_Y = GRID_Y + GRID_H + 46
 H = SHIP_Y + 58
+JET_SCALE = 0.85
 
 # ---- palette: sampled from the banner, pink -> purple -> blue ----
 STOPS = [(0.0, "#ff4fb8"), (0.35, "#c04ee8"), (0.65, "#7a5cf5"), (1.0, "#1f6bff")]
 BASE_DARK = "#0c0614"                       # what an empty day fades into
-INTENSITY = [0.16, 0.40, 0.60, 0.80, 1.0]   # contribution level 0..4
+INTENSITY = [0.25, 0.50, 0.68, 0.85, 1.0]   # contribution level 0..4
 
 LEVELS = {
     "NONE": 0,
@@ -43,11 +45,10 @@ LEVELS = {
 }
 
 # ---- timing (seconds) ----
-START_DELAY = 0.6      # beam and jet both wait a moment before they start
+START_DELAY = 0.6      # the beam waits a moment before it starts
 BEAM_STEP = 0.05       # beam time per column (53 columns ~ 2.7 s) -- fast
-LIFT_X, LIFT_Y = 2.5, 5.0   # how far a column floats up before it lands
-LAND = 0.55            # time to come down
-SETTLE = 0.25          # tiny soft overshoot, then still
+GROW = 0.45            # days behind the beam grow from small/dim to full size
+JET_START = START_DELAY + 0.9   # jet starts once the first columns are open
 STEP = 0.16            # jet time per column (53 columns ~ 8.5 s) -- slow
 SHOT_GAP = 0.42        # delay between bullets in one column (max)
 SHOT_GAP_MIN = 0.10    # lower bound when the year is very busy
@@ -85,10 +86,6 @@ def cell_color(c, lvl, cols):
     """Colour follows the banner gradient across the graph; level sets the brightness."""
     u = c / max(1, cols - 1)
     return _hex(_mix(_rgb(BASE_DARK), grad(u), INTENSITY[lvl]))
-
-
-def back_color(c, lvl, cols):
-    return _hex(_mix(_rgb(cell_color(c, lvl, cols)), (0, 0, 0), 0.5))
 
 
 def stops_xml(opacity=None):
@@ -166,12 +163,36 @@ def anim(attr, values, times, T):
     )
 
 
+# F-35 seen from above, nose up. Right half, then mirrored.
+F35_BODY = (
+    "M0 -20 L1.5 -14 L2.6 -8 L3.4 -3 L4.4 1 L13.8 9.2 L13.4 12.4 L5 11.2 L4.4 13 "
+    "L9.6 16.6 L8.8 19 L3.4 17.6 L2.4 18 L2.1 20.5 L-2.1 20.5 L-2.4 18 L-3.4 17.6 "
+    "L-8.8 19 L-9.6 16.6 L-4.4 13 L-5 11.2 L-13.4 12.4 L-13.8 9.2 L-4.4 1 L-3.4 -3 "
+    "L-2.6 -8 L-1.5 -14 Z"
+)
+
+
+def jet_svg():
+    return f"""<g transform="scale({JET_SCALE})"><g filter="url(#glow)">
+<path d="M-1.8 20.5 L0 30 L1.8 20.5 Z" fill="#6fa0ff"><animate attributeName="opacity" values="1;.35;1" dur=".28s" repeatCount="indefinite"/></path>
+<path d="M-.9 20.5 L0 26 L.9 20.5 Z" fill="#ffd0f3"><animate attributeName="opacity" values=".4;1;.4" dur=".28s" repeatCount="indefinite"/></path>
+<path d="{F35_BODY}" fill="url(#jetBody)" stroke="#cdbcff" stroke-width=".8" stroke-linejoin="round"/>
+<path d="M0 -12.5 C1.7 -10.8 1.9 -6.6 0 -3.6 C-1.9 -6.6 -1.7 -10.8 0 -12.5 Z" fill="#1d2747"/>
+<path d="M0 -11 C.7 -9.6 .8 -7.5 0 -6" fill="none" stroke="#8fb4ff" stroke-width=".5" opacity=".85"/>
+<path d="M3 -3.2 L4.3 .4 L3 .9 Z M-3 -3.2 L-4.3 .4 L-3 .9 Z" fill="#2a2f55"/>
+<path d="M0 -3 L0 17.4" stroke="#6f6a9c" stroke-width=".5" opacity=".5"/>
+<path d="M2.3 7 L5.4 14.6 M-2.3 7 L-5.4 14.6" stroke="#4b4a7a" stroke-width="1.1" stroke-linecap="round" opacity=".8"/>
+<path d="M-1.9 17.4 L1.9 17.4 L1.6 20.5 L-1.6 20.5 Z" fill="#3b3a66"/>
+<circle cx="-13.5" cy="10.8" r=".9" fill="#ff4fb8"/><circle cx="13.5" cy="10.8" r=".9" fill="#4f8dff"/>
+</g></g>"""
+
+
 def build(weeks, total):
     cols = len(weeks)
     grid_w = cols * P - GAP
     W = GRID_X * 2 + grid_w
     right = W - GRID_X
-    gun_y = SHIP_Y - 20  # bullets leave the jet here
+    gun_y = SHIP_Y - 17  # bullets leave the nose here
 
     def cx(c):
         return GRID_X + c * P + CELL / 2
@@ -182,7 +203,7 @@ def build(weeks, total):
 
     # Quiet profiles run at the relaxed pace set above. Very busy years are sped
     # up just enough to keep one loop under MAX_LOOP seconds.
-    fixed = START_DELAY + HOLD + FADE
+    fixed = JET_START + HOLD + FADE
     est = (fixed + cols * STEP + active_cols * (COL_PAUSE_IN + COL_PAUSE_OUT)
            + max(0, n_shots - active_cols) * SHOT_GAP_MIN)
     s = 1.0
@@ -194,7 +215,7 @@ def build(weeks, total):
         spare = MAX_LOOP - (fixed + cols * step + active_cols * (pin + pout))
         gap = min(SHOT_GAP, max(SHOT_GAP_MIN * s, spare / n_shots))
 
-    t = START_DELAY
+    t = JET_START
     pts = [(0.0, cx(0))]          # (time, jet x)
     shots = []                    # (col, row, fire_t, hit_t)
     for c, week in enumerate(weeks):
@@ -214,17 +235,17 @@ def build(weeks, total):
     T = sweep_end + HOLD + FADE
     pts.append((T, cx(cols - 1)))
     p_times = [tt for tt, _ in pts]
+    hit = {(c, row): h for c, row, f, h in shots}
 
     # ---------------- beam schedule (independent of the jet, much faster) ----------------
-    reveal_x0 = GRID_X - 2
-    full_w = grid_w + 4
+    x_start = GRID_X - 2
+    x_end = GRID_X + grid_w + 2
     beam_dur = cols * BEAM_STEP
     beam_end = START_DELAY + beam_dur
+    beam_times = [0, START_DELAY, beam_end, T]
 
     def t_beam(c):
-        return START_DELAY + beam_dur * (GRID_X + c * P - reveal_x0) / full_w
-
-    beam_times = [0, START_DELAY, beam_end, T]
+        return START_DELAY + beam_dur * (GRID_X + c * P - x_start) / (x_end - x_start)
 
     out = []
     a = out.append
@@ -238,17 +259,16 @@ def build(weeks, total):
 <radialGradient id="gViolet"><stop offset="0" stop-color="#a24ff0" stop-opacity=".18"/><stop offset="1" stop-color="#a24ff0" stop-opacity="0"/></radialGradient>
 <radialGradient id="gBlue"><stop offset="0" stop-color="#2563ff" stop-opacity=".28"/><stop offset="1" stop-color="#2563ff" stop-opacity="0"/></radialGradient>
 <linearGradient id="frame" x1="0" y1="0" x2="1" y2="0">{stops_xml()}</linearGradient>
-<linearGradient id="titleGrad" gradientUnits="userSpaceOnUse" x1="{GRID_X}" y1="0" x2="{GRID_X + 270}" y2="0">{stops_xml()}</linearGradient>
 <linearGradient id="beamV" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#ff9be0" stop-opacity="0"/><stop offset=".5" stop-color="#f6e3ff"/><stop offset="1" stop-color="#9ab6ff" stop-opacity="0"/></linearGradient>
+<stop offset="0" stop-color="#ff4fb8"/><stop offset=".5" stop-color="#a24ff0"/><stop offset="1" stop-color="#2f6bff"/></linearGradient>
 <linearGradient id="beamH" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0" stop-color="#c04ee8" stop-opacity="0"/><stop offset=".5" stop-color="#c04ee8" stop-opacity=".42"/><stop offset="1" stop-color="#c04ee8" stop-opacity="0"/></linearGradient>
+<stop offset="0" stop-color="#a24ff0" stop-opacity="0"/><stop offset=".5" stop-color="#a24ff0" stop-opacity=".40"/><stop offset="1" stop-color="#a24ff0" stop-opacity="0"/></linearGradient>
+<linearGradient id="jetBody" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#cfc6ee"/><stop offset=".5" stop-color="#ffffff"/><stop offset="1" stop-color="#cfc6ee"/></linearGradient>
 <filter id="glow" x="-300%" y="-100%" width="700%" height="300%">
 <feGaussianBlur stdDeviation="2" result="b"/>
-<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>""")
-    a(f'<clipPath id="reveal"><rect x="{reveal_x0}" y="{GRID_Y - 12}" height="{GRID_H + 24}" width="{full_w}">')
-    a(anim("width", [0, 0, full_w, full_w], beam_times, T))
-    a("</rect></clipPath></defs>")
+<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>""")
 
     # ---------------- card ----------------
     a('<g clip-path="url(#card)">')
@@ -265,49 +285,46 @@ def build(weeks, total):
 
     font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
     a(f'<text x="{GRID_X}" y="70" font-family="{font}" font-size="24" font-weight="700" '
-      f'fill="url(#titleGrad)">Contribution Activity</text>')
-    a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#a58fc4">'
+      f'fill="#ffffff">Contribution Activity</text>')
+    a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
       f'{total} contributions in the last year</text>')
 
     # legend
     sq_right = right - 34
     first_sq = sq_right - 5 * P + GAP
     mid = grad(0.5)
-    a(f'<text x="{right}" y="70" text-anchor="end" font-family="{font}" font-size="11" fill="#a58fc4">More</text>')
+    a(f'<text x="{right}" y="70" text-anchor="end" font-family="{font}" font-size="11" fill="#ffffff">More</text>')
     for i in range(5):
         col = _hex(_mix(_rgb(BASE_DARK), mid, INTENSITY[i]))
         a(f'<rect x="{first_sq + i * P}" y="61" width="{CELL}" height="{CELL}" rx="2.5" fill="{col}"/>')
-    a(f'<text x="{first_sq - 7}" y="70" text-anchor="end" font-family="{font}" font-size="11" fill="#a58fc4">Less</text>')
+    a(f'<text x="{first_sq - 7}" y="70" text-anchor="end" font-family="{font}" font-size="11" fill="#ffffff">Less</text>')
 
     # ---------------- animated layer (fades in / out around each loop) ----------------
     a("<g>")
     a(anim("opacity", [0, 1, 1, 0], [0, 0.5, T - FADE, T], T))
 
-    a('<g clip-path="url(#reveal)">')
-    # dark "thickness" under every day: only peeks out while a column floats up
-    a("<g>")
-    for c, week in enumerate(weeks):
-        for (row, lvl, _n) in week:
-            a(f'<rect x="{GRID_X + c * P + 0.6}" y="{GRID_Y + row * P + 0.6}" width="{CELL - 1.2}" '
-              f'height="{CELL - 1.2}" rx="2" fill="{back_color(c, lvl, cols)}"/>')
-    a("</g>")
-    # top faces: each column floats up when the beam reaches it, lands, then stays still
+    # days: small + dim right behind the beam, then grow to full size and stay still.
+    # A day that gets shot is removed.
+    splines = "0 0 1 1;0.2 0.7 0.3 1;0.3 0 0.4 1;0 0 1 1"
     for c, week in enumerate(weeks):
         tb = t_beam(c)
-        times = [0, tb, tb + LAND, tb + LAND + SETTLE, T]
-        lifted = f"{fmt(-LIFT_X)},{fmt(-LIFT_Y)}"
-        vals = [lifted, lifted, "0.6,1.2", "0,0", "0,0"]
-        a("<g>")
-        a(f'<animateTransform attributeName="transform" type="translate" values="{";".join(vals)}" '
-          f'keyTimes="{key_times(times, T)}" calcMode="spline" '
-          f'keySplines="0 0 1 1;0.22 0.61 0.36 1;0.3 0 0.4 1;0 0 1 1" dur="{T:.3f}s" repeatCount="indefinite"/>')
+        s_kt = key_times([0, tb, tb + GROW, tb + GROW + 0.22, T], T)
         for (row, lvl, _n) in week:
-            a(f'<rect x="{GRID_X + c * P}" y="{GRID_Y + row * P}" width="{CELL}" height="{CELL}" '
-              f'rx="2.5" fill="{cell_color(c, lvl, cols)}"/>')
-        a("</g>")
-    a("</g>")
+            h = hit.get((c, row))
+            o_vals = [0, 0, 0.25, 1, 1]
+            o_times = [0, tb - 0.01, tb, tb + GROW, T]
+            if h is not None:
+                o_vals = [0, 0, 0.25, 1, 1, 0, 0]
+                o_times = [0, tb - 0.01, tb, tb + GROW, h, h + 0.12, T]
+            a(f'<g transform="translate({fmt(cx(c))},{fmt(GRID_Y + row * P + CELL / 2)})" opacity="0">')
+            a(f'<animateTransform attributeName="transform" type="scale" additive="sum" '
+              f'values="0.3;0.3;1.12;1;1" keyTimes="{s_kt}" calcMode="spline" keySplines="{splines}" '
+              f'dur="{T:.3f}s" repeatCount="indefinite"/>')
+            a(anim("opacity", o_vals, o_times, T))
+            a(f'<rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="{cell_color(c, lvl, cols)}"/>')
+            a("</g>")
 
-    # hits + bullets
+    # bullets + explosions
     for c, row, f, h in shots:
         x = cx(c)
         cy = GRID_Y + row * P + CELL / 2
@@ -327,30 +344,24 @@ def build(weeks, total):
         a("</rect>")
 
     # the beam that opens the graph
-    beam_h = GRID_H + 24
-    x_start, x_end = reveal_x0, reveal_x0 + full_w
+    beam_y, beam_h = GRID_Y - 8, GRID_H + 16
     beam_op = anim("opacity", [0, 1, 1, 0, 0], [0, 0.3, beam_end, beam_end + 0.45, T], T)
-    a(f'<rect y="{GRID_Y - 12}" width="16" height="{beam_h}" fill="url(#beamH)" opacity="0">')
+    a(f'<rect y="{beam_y}" width="16" height="{beam_h}" fill="url(#beamH)" opacity="0">')
     a(anim("x", [x_start - 8, x_start - 8, x_end - 8, x_end - 8], beam_times, T))
     a(beam_op)
     a("</rect>")
-    a(f'<rect y="{GRID_Y - 12}" width="2" height="{beam_h}" rx="1" fill="url(#beamV)" opacity="0">')
-    a(anim("x", [x_start - 1, x_start - 1, x_end - 1, x_end - 1], beam_times, T))
+    a(f'<rect y="{beam_y}" width="3" height="{beam_h}" rx="1.5" fill="url(#beamV)" opacity="0">')
+    a(anim("x", [x_start - 1.5, x_start - 1.5, x_end - 1.5, x_end - 1.5], beam_times, T))
     a(beam_op)
     a("</rect>")
 
-    # jet
+    # jet (F-35)
     vals = ";".join(f"{fmt(x)},{SHIP_Y}" for _, x in pts)
     a(f'<g transform="translate({fmt(cx(0))},{SHIP_Y})">')
     a(f'<animateTransform attributeName="transform" type="translate" values="{vals}" '
       f'keyTimes="{key_times(p_times, T)}" dur="{T:.3f}s" repeatCount="indefinite"/>')
-    a('<g transform="scale(1.1)" filter="url(#glow)">')
-    a('<path d="M0 -16 L5 -4 L12 8 L6 6 L3 12 L-3 12 L-6 6 L-12 8 L-5 -4 Z" fill="#f7eaff" '
-      'stroke="#b45cff" stroke-width="1.5" stroke-linejoin="round"/>')
-    a('<path d="M0 -9 L2.5 -2 L-2.5 -2 Z" fill="#ff4fb8"/>')
-    a('<path d="M-2 12 L0 20 L2 12 Z" fill="#6fa0ff">'
-      '<animate attributeName="opacity" values="1;.3;1" dur=".3s" repeatCount="indefinite"/></path>')
-    a("</g></g>")
+    a(jet_svg())
+    a("</g>")
 
     a("</g></svg>")
     return "\n".join(out)
