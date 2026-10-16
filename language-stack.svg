@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 782 312" width="782" height="312" role="img" aria-label="Language stack">
+<defs>
+<clipPath id="card"><rect x="6" y="6" width="770" height="300" rx="22"/></clipPath>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#1d0316"/><stop offset=".45" stop-color="#0d0618"/><stop offset="1" stop-color="#04061a"/></linearGradient>
+<radialGradient id="gPink"><stop offset="0" stop-color="#ff3fa8" stop-opacity=".30"/><stop offset="1" stop-color="#ff3fa8" stop-opacity="0"/></radialGradient>
+<radialGradient id="gViolet"><stop offset="0" stop-color="#a24ff0" stop-opacity=".18"/><stop offset="1" stop-color="#a24ff0" stop-opacity="0"/></radialGradient>
+<radialGradient id="gBlue"><stop offset="0" stop-color="#2563ff" stop-opacity=".28"/><stop offset="1" stop-color="#2563ff" stop-opacity="0"/></radialGradient>
+<linearGradient id="frame" x1="0" y1="0" x2="1" y2="0"><stop offset="0.0" stop-color="#ff4fb8"/><stop offset="0.35" stop-color="#c04ee8"/><stop offset="0.65" stop-color="#7a5cf5"/><stop offset="1.0" stop-color="#1f6bff"/></linearGradient>
+</defs>
+<g clip-path="url(#card)">
+<rect width="782" height="312" fill="url(#bg)"/>
+<circle cx="93.84" cy="287.04" r="240" fill="url(#gPink)"/>
+<circle cx="351.9" cy="0" r="210" fill="url(#gViolet)"/>
+<circle cx="719.44" cy="87.36" r="240" fill="url(#gBlue)"/>
+<circle cx="609.96" cy="312" r="170" fill="url(#gBlue)" opacity=".5"/>
+</g>
+<rect x="6" y="6" width="770" height="300" rx="22" fill="none" stroke="url(#frame)" stroke-opacity=".65" stroke-width="1.5"/>
+<rect x="28" y="28" width="726" height="256" rx="16" fill="#07030f" fill-opacity=".45" stroke="url(#frame)" stroke-opacity=".4" stroke-width="1.2"/>
+<text x="48" y="70" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">Language Stack</text>
+<text x="48" y="92" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#ffffff">Repository-weighted technologies</text>
+<text x="734" y="70" text-anchor="end" font-family="Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#c58bff">&gt; stack.scan</text>
+<g opacity="0">
+<animate attributeName="opacity" from="0" to="1" begin="0.4s" dur="0.4s" fill="freeze"/>
+<circle cx="53" cy="132" r="5" fill="#f0553c"/>
+<text x="70" y="136.5" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">HTML</text>
+<text x="252" y="136.5" text-anchor="end" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">76%</text>
+</g>
+<rect x="268" y="128.0" width="466" height="8" rx="4.0" fill="#ffffff" fill-opacity=".09"/>
+<rect x="268" y="128.0" width="0" height="8" rx="4.0" fill="#f0553c">
+<animate attributeName="width" from="0" to="354.16" begin="0.4s" dur="0.9s" calcMode="spline" keyTimes="0;1" keySplines="0.2 0.7 0.3 1" fill="freeze"/>
+</rect>
+<g opacity="0">
+<animate attributeName="opacity" from="0" to="1" begin="0.54s" dur="0.4s" fill="freeze"/>
+<circle cx="53" cy="162" r="5" fill="#dea584"/>
+<text x="70" y="166.5" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">Rust</text>
+<text x="252" y="166.5" text-anchor="end" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">14%</text>
+</g>
+<rect x="268" y="158.0" width="466" height="8" rx="4.0" fill="#ffffff" fill-opacity=".09"/>
+<rect x="268" y="158.0" width="0" height="8" rx="4.0" fill="#dea584">
+<animate attributeName="width" from="0" to="65.24" begin="0.54s" dur="0.9s" calcMode="spline" keyTimes="0;1" keySplines="0.2 0.7 0.3 1" fill="freeze"/>
+</rect>
+<g opacity="0">
+<animate attributeName="opacity" from="0" to="1" begin="0.68s" dur="0.4s" fill="freeze"/>
+<circle cx="53" cy="192" r="5" fill="#f4d35e"/>
+<text x="70" y="196.5" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">JavaScript</text>
+<text x="252" y="196.5" text-anchor="end" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">4%</text>
+</g>
+<rect x="268" y="188.0" width="466" height="8" rx="4.0" fill="#ffffff" fill-opacity=".09"/>
+<rect x="268" y="188.0" width="0" height="8" rx="4.0" fill="#f4d35e">
+<animate attributeName="width" from="0" to="18.64" begin="0.68s" dur="0.9s" calcMode="spline" keyTimes="0;1" keySplines="0.2 0.7 0.3 1" fill="freeze"/>
+</rect>
+<g opacity="0">
+<animate attributeName="opacity" from="0" to="1" begin="0.82s" dur="0.4s" fill="freeze"/>
+<circle cx="53" cy="222" r="5" fill="#a86fd1"/>
+<text x="70" y="226.5" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">CSS</text>
+<text x="252" y="226.5" text-anchor="end" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">4%</text>
+</g>
+<rect x="268" y="218.0" width="466" height="8" rx="4.0" fill="#ffffff" fill-opacity=".09"/>
+<rect x="268" y="218.0" width="0" height="8" rx="4.0" fill="#a86fd1">
+<animate attributeName="width" from="0" to="18.64" begin="0.82s" dur="0.9s" calcMode="spline" keyTimes="0;1" keySplines="0.2 0.7 0.3 1" fill="freeze"/>
+</rect>
+<g opacity="0">
+<animate attributeName="opacity" from="0" to="1" begin="0.96s" dur="0.4s" fill="freeze"/>
+<circle cx="53" cy="252" r="5" fill="#3d8fc4"/>
+<text x="70" y="256.5" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">Python</text>
+<text x="252" y="256.5" text-anchor="end" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">2%</text>
+</g>
+<rect x="268" y="248.0" width="466" height="8" rx="4.0" fill="#ffffff" fill-opacity=".09"/>
+<rect x="268" y="248.0" width="0" height="8" rx="4.0" fill="#3d8fc4">
+<animate attributeName="width" from="0" to="9.32" begin="0.96s" dur="0.9s" calcMode="spline" keyTimes="0;1" keySplines="0.2 0.7 0.3 1" fill="freeze"/>
+</rect>
+</svg>
