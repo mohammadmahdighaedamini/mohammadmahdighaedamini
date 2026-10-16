@@ -214,8 +214,6 @@ def build(langs):
       f'fill="#ffffff">Language Stack</text>')
     a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
       f'Repository-weighted technologies</text>')
-    a(f'<text x="{W - GRID_X}" y="70" text-anchor="end" font-family="{mono}" font-size="12" '
-      f'font-weight="700" fill="#c58bff">&gt; stack.scan</text>')
 
     if not rows:
         a(f'<text x="{GRID_X}" y="{ROW_Y0 + 4}" font-family="{font}" font-size="13" fill="#ffffff">'
