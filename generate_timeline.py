@@ -20,8 +20,8 @@ Logos (nothing is drawn by the script itself):
   A repo with no logo shows only its ring (the ring itself breathes).
 
 Which repositories?
+  SOURCE = "all"   : newest MAX_REPOS public non-fork repos (new repos show up automatically).
   SOURCE = "pinned": pinned repos (max 6); if nothing is pinned, newest repos.
-  SOURCE = "all"   : newest MAX_REPOS public non-fork repos.
 
 Usage:
   GITHUB_TOKEN=... GITHUB_USER=yourname python generate_timeline.py   # real data
@@ -42,7 +42,9 @@ W = 782                 # same width as the other cards
 GRID_X = 48
 VISIBLE = 5             # projects shown at the same time
 MAX_REPOS = 12          # total projects the timeline will walk through
-SOURCE = "pinned"       # "pinned" (fallback: newest) or "all"
+SOURCE = "all"          # "all" = every public non-fork repo, new repos appear by themselves (newest MAX_REPOS)
+                        # "pinned" = only the repos you pinned on your profile (max 6)
+HIDE_PROFILE_REPO = True    # leave out the profile repo itself (the one named like your username)
 LINE_Y = 160            # y of the timeline
 RING_R = 16
 RING_DASHES = 6         # how many dashes the circle around a logo is made of (fewer = calmer)
@@ -301,7 +303,8 @@ def fetch(user, token):
     u = data["data"]["user"]
 
     pinned = [n for n in u["pinnedItems"]["nodes"] if n and n.get("name")]
-    recent = [n for n in u["repositories"]["nodes"] if n and n["name"].lower() != user.lower()]
+    recent = [n for n in u["repositories"]["nodes"]
+              if n and not (HIDE_PROFILE_REPO and n["name"].lower() == user.lower())]
     if SOURCE == "pinned" and pinned:
         repos, kind = pinned[:MAX_REPOS], "featured"
     else:  # newest repos, without the profile repo itself
@@ -791,7 +794,7 @@ def main():
         if "--few" in sys.argv:
             items = items[:3]
     else:
-        user = os.environ.get("GITHUB_USER")
+        user = os.environ.get("GITHUB_USER") or os.environ.get("GITHUB_REPOSITORY_OWNER")  # (set by GitHub Actions)
         token = os.environ.get("GITHUB_TOKEN")
         if not user or not token:
             sys.exit("Set GITHUB_USER and GITHUB_TOKEN, or run with --demo")
