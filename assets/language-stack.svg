@@ -19,7 +19,6 @@
 <rect x="28" y="28" width="726" height="256" rx="16" fill="#07030f" fill-opacity=".45" stroke="url(#frame)" stroke-opacity=".4" stroke-width="1.2"/>
 <text x="48" y="70" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">Language Stack</text>
 <text x="48" y="92" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#ffffff">Repository-weighted technologies</text>
-<text x="734" y="70" text-anchor="end" font-family="Consolas, 'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#c58bff">&gt; stack.scan</text>
 <g>
 <animate attributeName="opacity" values="1;1;0;0" keyTimes="0.00000;0.92519;0.99377;1.00000" dur="8.020s" repeatCount="indefinite"/>
 <g opacity="0">
