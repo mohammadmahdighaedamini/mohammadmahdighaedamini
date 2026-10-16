@@ -4,7 +4,9 @@
 
 Languages are weighted by repository: every public, non-fork repo counts the same,
 and is split between its languages by their share of the code. The top languages
-are shown as bars that fill in from left to right.
+are shown as bars. Each bar fills from 0 up to its percentage while the number
+counts up with it (e.g. HTML: 0% -> 76%), holds for a few seconds, then fades and
+plays again.
 
 Usage:
   GITHUB_TOKEN=... GITHUB_USER=yourname python generate_langs.py   # real data
@@ -43,9 +45,12 @@ OVERRIDES = {
 OTHER_COLOR = "#8b949e"
 
 # ---- timing (seconds) ----
-FIRST_BAR = 0.4
-BAR_DELAY = 0.14        # delay between rows
-BAR_DUR = 0.9
+FIRST_BAR = 0.5         # first bar starts after this
+BAR_DELAY = 0.18        # delay between rows
+BAR_DUR = 2.2           # time for a bar to fill from 0 to its percentage
+HOLD = 4.0              # finished card stays visible this long
+FADE = 0.6              # fade out before the loop restarts
+EASE = (0.2, 0.7, 0.3, 1.0)   # bar easing (fast start, soft landing); numbers follow it
 
 
 def stops_xml():
@@ -109,13 +114,61 @@ def demo():
     ]
 
 
-# ---------------- svg ----------------
+# ---------------- easing (so the counter matches the bar exactly) ----------------
+def _bez(s, a, b):
+    return 3 * (1 - s) ** 2 * s * a + 3 * (1 - s) * s ** 2 * b + s ** 3
+
+
+def ease(u):
+    """Progress (0..1) of the bar after a fraction u of its duration."""
+    lo, hi = 0.0, 1.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if _bez(mid, EASE[0], EASE[2]) < u:
+            lo = mid
+        else:
+            hi = mid
+    return _bez((lo + hi) / 2, EASE[1], EASE[3])
+
+
+def time_for(progress):
+    """Fraction of the bar's duration at which it has reached `progress`."""
+    lo, hi = 0.0, 1.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if ease(mid) < progress:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
+# ---------------- svg helpers ----------------
 def fmt(v):
     return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
-def pct_label(p):
-    return "&lt;1%" if p < 1 else f"{round(p)}%"
+def norm(times, T):
+    """Absolute times (s) -> non-decreasing keyTimes in [0, 1]."""
+    kt, last = [], 0.0
+    for t in times:
+        n = min(1.0, max(last, t / T))
+        kt.append(n)
+        last = n
+    kt[0], kt[-1] = 0.0, 1.0
+    return kt
+
+
+def key_times(times, T):
+    return ";".join(f"{k:.5f}" for k in norm(times, T))
+
+
+def anim(attr, values, times, T, extra=""):
+    vals = ";".join(v if isinstance(v, str) else fmt(v) for v in values)
+    return (
+        f'<animate attributeName="{attr}" values="{vals}" keyTimes="{key_times(times, T)}" '
+        f'dur="{T:.3f}s" repeatCount="indefinite"{extra}/>'
+    )
 
 
 def build(langs):
@@ -126,6 +179,7 @@ def build(langs):
 
     n = max(1, len(rows))
     H = ROW_Y0 + (n - 1) * ROW_GAP + 60
+    T = FIRST_BAR + (n - 1) * BAR_DELAY + BAR_DUR + HOLD + FADE
     font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
     mono = "Consolas, 'SF Mono', Menlo, monospace"
 
@@ -167,30 +221,55 @@ def build(langs):
         a(f'<text x="{GRID_X}" y="{ROW_Y0 + 4}" font-family="{font}" font-size="13" fill="#ffffff">'
           f'No public repositories with code yet.</text>')
 
+    # ---------------- bars (the whole block fades out and replays) ----------------
+    a("<g>")
+    a(anim("opacity", [1, 1, 0, 0], [0, T - FADE, T - 0.05, T], T))
+
     for i, (name, p, color) in enumerate(rows):
         y = ROW_Y0 + i * ROW_GAP
         t0 = FIRST_BAR + i * BAR_DELAY
         label = name if len(name) <= 16 else name[:15] + "…"
         bar_w = max(6.0, p / 100 * BAR_W)
+        shown = round(p)
+        num_attrs = (f'x="{BAR_X - 16}" y="{y + 4.5}" text-anchor="end" font-family="{font}" '
+                     f'font-size="12" font-weight="700" fill="#ffffff"')
 
-        # dot, name and percent fade in with their bar
+        # dot and name fade in as the row starts
         a('<g opacity="0">')
-        a(f'<animate attributeName="opacity" from="0" to="1" begin="{fmt(t0)}s" dur="0.4s" fill="freeze"/>')
+        a(anim("opacity", [0, 0, 1, 1], [0, t0, t0 + 0.4, T], T))
         a(f'<circle cx="{GRID_X + 5}" cy="{y}" r="5" fill="{color}"/>')
         a(f'<text x="{GRID_X + 22}" y="{y + 4.5}" font-family="{font}" font-size="13" font-weight="700" '
           f'fill="#ffffff">{html.escape(label)}</text>')
-        a(f'<text x="{BAR_X - 16}" y="{y + 4.5}" text-anchor="end" font-family="{font}" font-size="12" '
-          f'font-weight="700" fill="#ffffff">{pct_label(p)}</text>')
+
+        # counter: one text per number, shown one after another, in step with the bar
+        if shown >= 1:
+            starts = [0.0] + [t0 + BAR_DUR * time_for(k / shown) for k in range(1, shown + 1)]
+            a('<g class="nums">')
+            for k in range(shown + 1):
+                if k == 0:
+                    vals, times = ["visible", "hidden", "hidden"], [0, starts[1], T]
+                elif k < shown:
+                    vals, times = ["hidden", "visible", "hidden", "hidden"], [0, starts[k], starts[k + 1], T]
+                else:
+                    vals, times = ["hidden", "visible", "visible"], [0, starts[k], T]
+                hid = "" if k == 0 else ' visibility="hidden"'
+                a(f'<text {num_attrs}{hid}>{k}%'
+                  + anim("visibility", vals, times, T, ' calcMode="discrete"') + "</text>")
+            a("</g>")
+        else:
+            a(f'<text {num_attrs}>&lt;1%</text>')
         a("</g>")
 
-        # track + bar that fills from left to right
+        # track + bar that fills from 0 to its width
         a(f'<rect x="{BAR_X}" y="{y - BAR_H / 2}" width="{BAR_W}" height="{BAR_H}" rx="{BAR_H / 2}" '
           f'fill="#ffffff" fill-opacity=".09"/>')
-        a(f'<rect x="{BAR_X}" y="{y - BAR_H / 2}" width="0" height="{BAR_H}" rx="{BAR_H / 2}" fill="{color}">')
-        a(f'<animate attributeName="width" from="0" to="{fmt(bar_w)}" begin="{fmt(t0)}s" dur="{BAR_DUR}s" '
-          f'calcMode="spline" keyTimes="0;1" keySplines="0.2 0.7 0.3 1" fill="freeze"/>')
+        a(f'<rect class="bar" x="{BAR_X}" y="{y - BAR_H / 2}" width="0" height="{BAR_H}" '
+          f'rx="{BAR_H / 2}" fill="{color}">')
+        a(anim("width", [0, 0, bar_w, bar_w], [0, t0, t0 + BAR_DUR, T], T,
+               ' calcMode="spline" keySplines="0 0 1 1;%s %s %s %s;0 0 1 1"' % EASE))
         a("</rect>")
 
+    a("</g>")
     a("</svg>")
     return "\n".join(out)
 
