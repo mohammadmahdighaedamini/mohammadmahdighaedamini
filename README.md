@@ -16,6 +16,11 @@
   <img src="assets/language-stack.svg" alt="Language stack" width="100%" />
 </p>
 
+<!-- بخش پروژه‌ها: ریپوهای pin‌شده‌ت به ترتیب تاریخ ساخت، خودکار آپدیت می‌شه -->
+<p align="center">
+  <img src="assets/project-timeline.svg" alt="Project timeline" width="100%" />
+</p>
+
 ---
 
 <!--
