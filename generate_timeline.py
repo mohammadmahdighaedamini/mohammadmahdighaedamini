@@ -44,7 +44,8 @@ VISIBLE = 5             # projects shown at the same time
 MAX_REPOS = 12          # total projects the timeline will walk through
 SOURCE = "all"          # "all" = every public non-fork repo, new repos appear by themselves (newest MAX_REPOS)
                         # "pinned" = only the repos you pinned on your profile (max 6)
-HIDE_PROFILE_REPO = True    # leave out the profile repo itself (the one named like your username)
+HIDE_PROFILE_REPO = False   # False = the profile repo itself (named like your username) is shown too
+REQUIRE_LOGO = True         # True = a repo WITHOUT a logo file (logo.svg/png/webp/jpg) is left out of the timeline
 LINE_Y = 160            # y of the timeline
 RING_R = 16
 RING_DASHES = 6         # how many dashes the circle around a logo is made of (fewer = calmer)
@@ -306,12 +307,16 @@ def fetch(user, token):
     recent = [n for n in u["repositories"]["nodes"]
               if n and not (HIDE_PROFILE_REPO and n["name"].lower() == user.lower())]
     if SOURCE == "pinned" and pinned:
-        repos, kind = pinned[:MAX_REPOS], "featured"
-    else:  # newest repos, without the profile repo itself
-        repos, kind = recent[:MAX_REPOS], "newest"
+        candidates, kind = pinned, "featured"
+    else:  # newest repos (the profile repo is shown unless HIDE_PROFILE_REPO is True)
+        candidates, kind = recent, "newest"
 
-    items = []
-    for n in sorted(repos, key=lambda x: x["createdAt"]):
+    # walk from newest to oldest; repos without a logo are skipped (if REQUIRE_LOGO),
+    # so they never use up one of the MAX_REPOS places
+    picked = []
+    for n in sorted(candidates, key=lambda x: x["createdAt"], reverse=True):
+        if len(picked) >= MAX_REPOS:
+            break
         top = (n.get("languages") or {}).get("nodes") or []
         lang = top[0] if top else (n.get("primaryLanguage") or {})  # most used language
         item = {
@@ -327,7 +332,12 @@ def fetch(user, token):
                 if data:
                     item["logo_data"] = data
                 break
-        items.append(item)
+        has_logo = "logo_data" in item or n["name"] in REPO_ICONS   # own icon from REPO_ICONS counts too
+        if REQUIRE_LOGO and not has_logo:
+            continue
+        picked.append((n["createdAt"], item))
+
+    items = [it for _, it in sorted(picked, key=lambda x: x[0])]   # oldest -> newest
     return items, kind
 
 
