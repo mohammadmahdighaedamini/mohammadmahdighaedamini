@@ -195,43 +195,41 @@ def build(name, picture):
     a(f'<circle cx="{PIC_CX}" cy="{fmt(cy)}" r="{PIC_R + RING_GAP}" fill="none" '
       f'stroke="url(#frame)" stroke-width="2"/>')
 
-    # the typed name: one <text> per step (the first k letters + the cursor); only one is visible
-    # at a time. The browser lays the letters out itself, so any font works and the cursor
-    # always sits right after the last letter.
-    EPS = 0.002
+    # the typed name: ONE <text> with one <tspan> per letter. Every letter fades in / out by itself,
+    # so nothing is drawn twice (no flicker, no shaking). The browser lays the letters out itself,
+    # so any font works.
+    f = max(FADE, 0.001)
+    spans = []
+    for i, ch in enumerate(name):
+        ts = i * TYPE_STEP                           # this letter is typed
+        te = t0 + (n - 1 - i) * ERASE_STEP           # this letter is erased (last letter first)
+        pts = [(0.0, 0.0)] + ([(ts, 0.0)] if ts > 0 else []) + [(ts + f, 1.0), (te, 1.0), (te + f, 0.0), (T, 0.0)]
+        kt = ";".join(f"{t_ / T:.5f}" for t_, _ in pts)
+        vals = ";".join(f"{v_:g}" for _, v_ in pts)
+        spans.append(f'<tspan fill-opacity="0"><animate attributeName="fill-opacity" values="{vals}" '
+                     f'keyTimes="{kt}" dur="{T:.3f}s" calcMode="linear" repeatCount="indefinite"/>'
+                     f'{html.escape(ch)}</tspan>')
+    a(f'<text x="{TEXT_X}" y="{fmt(base_y)}" font-family="{FONT}" font-size="{fmt(fs)}" '
+      f'font-weight="700" fill="#ffffff">{"".join(spans)}</text>')
+
+    # the blinking cursor: invisible copies of the first k letters keep its place; only one copy shows at a time
     for k in range(n + 1):
-        pts = []                                   # (time, opacity) points, linear in between
-        for s_, e_, typing, fades_out in windows[k]:
-            if typing and k > 0 and FADE > 0:      # new letter fades in on top of the old text
-                pts += [(s_, 0.0), (min(s_ + FADE, e_), 1.0)]
-            else:                                  # appears at once (first step / erasing)
-                pts += [(max(s_ - EPS, 0.0), 0.0), (s_, 1.0)] if s_ > 0 else [(0.0, 1.0)]
-            if fades_out and FADE > 0:             # erased letter fades out
-                pts += [(e_, 1.0), (e_ + FADE, 0.0)]
-            elif e_ < T:                           # stays solid until the next letter has fully faded in
-                pts += [(e_, 1.0), (e_ + FADE, 1.0), (e_ + FADE + EPS, 0.0)]
-            else:
-                pts += [(T, 1.0)]
-        clean = []                                 # strictly increasing times, inside 0..T
-        for t_, v_ in sorted(pts, key=lambda x: x[0]):
-            t_ = min(t_, T)
-            if clean and t_ <= clean[-1][0] + 1e-6:
-                if t_ >= T: continue
-                t_ = clean[-1][0] + EPS
-            clean.append((t_, v_))
-        if clean[0][0] > 0:
-            clean.insert(0, (0.0, 0.0))
-        if clean[-1][0] < T:
-            clean.append((T, clean[-1][1]))
-        kt = ";".join(f"{t_ / T:.5f}" for t_, _ in clean)
-        vals = ";".join(f"{v_:g}" for _, v_ in clean)
+        ev = []
+        for w in windows[k]:
+            ev.append((w[0], 1))
+            if w[1] < T:
+                ev.append((w[1], 0))
+        if ev[0][0] > 0:
+            ev.insert(0, (0.0, 0))
+        kt = ";".join(f"{min(1.0, t / T):.5f}" for t, _ in ev)
+        vals = ";".join(str(v) for _, v in ev)
         a(f'<text x="{TEXT_X}" y="{fmt(base_y)}" font-family="{FONT}" font-size="{fmt(fs)}" '
-          f'font-weight="700" fill="#ffffff" opacity="0">'
+          f'font-weight="700" fill-opacity="0" opacity="0">'
           f'<animate attributeName="opacity" values="{vals}" keyTimes="{kt}" dur="{T:.3f}s" '
-          f'calcMode="linear" repeatCount="indefinite"/>'
+          f'calcMode="discrete" repeatCount="indefinite"/>'
           f'{html.escape(name[:k])}'
-          f'<tspan fill="{CURSOR_COLOR}" font-weight="400"><animate attributeName="fill-opacity" values="1;0;1" '
-          f'keyTimes="0;.5;1" dur="{CURSOR_BLINK}s" calcMode="linear" repeatCount="indefinite"/>|</tspan>'
+          f'<tspan fill="{CURSOR_COLOR}" fill-opacity="1" font-weight="400"><animate attributeName="fill-opacity" '
+          f'values="1;0;1" keyTimes="0;.5;1" dur="{CURSOR_BLINK}s" calcMode="linear" repeatCount="indefinite"/>|</tspan>'
           f'</text>')
 
     a("</svg>")
