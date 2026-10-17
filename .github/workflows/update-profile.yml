@@ -24,15 +24,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Pillow (crops the profile picture sharply)
-        run: pip install pillow
-
       - name: Generate SVGs
         run: |
           python generate_ship.py
           python generate_langs.py
           python generate_timeline.py
-          python generate_name.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USER: ${{ github.repository_owner }}
@@ -41,7 +37,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/contrib-ship.svg assets/language-stack.svg assets/project-timeline.svg assets/name-typing.svg
+          git add assets/contrib-ship.svg assets/language-stack.svg assets/project-timeline.svg
           if ! git diff --cached --quiet; then
             git commit -m "chore: update profile SVGs"
             for i in 1 2 3; do
