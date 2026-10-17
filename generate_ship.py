@@ -21,6 +21,8 @@ import random
 import sys
 import urllib.request
 
+from fontembed import FONT_STACK, embed_fonts
+
 OUT = "assets/contrib-ship.svg"
 
 CELL, GAP = 10, 3
@@ -272,7 +274,7 @@ def build(weeks, total):
     a(f'<rect x="28" y="28" width="{W - 56}" height="{SHIP_Y + 30 - 28}" rx="16" fill="#07030f" '
       f'fill-opacity=".45" stroke="url(#frame)" stroke-opacity=".4" stroke-width="1.2"/>')
 
-    font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
+    font = FONT_STACK
     a(f'<text x="{GRID_X}" y="70" font-family="{font}" font-size="24" font-weight="700" '
       f'fill="#ffffff">Contribution Activity</text>')
     a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
@@ -348,7 +350,7 @@ def build(weeks, total):
     a("</g>")
 
     a("</g></svg>")
-    return "\n".join(out)
+    return embed_fonts("\n".join(out))   # embed the Segoe UI font into the SVG
 
 
 def main():

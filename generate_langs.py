@@ -24,6 +24,8 @@ import re
 import sys
 import urllib.request
 
+from fontembed import FONT_STACK, embed_fonts
+
 OUT = "assets/language-stack.svg"
 
 W = 782                 # same width as the contribution card
@@ -197,8 +199,8 @@ def build(langs):
     H = ROW_Y0 + (n - 1) * ROW_GAP + 60
     own = FIRST_BAR + (n - 1) * BAR_DELAY + BAR_DUR + FADE
     T = max(own + HOLD, ship_cycle())   # same loop length as the jet card
-    font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
-    mono = "Consolas, 'SF Mono', Menlo, monospace"
+    font = FONT_STACK
+    mono = FONT_STACK
 
     out = []
     a = out.append
@@ -286,7 +288,7 @@ def build(langs):
 
     a("</g>")
     a("</svg>")
-    return "\n".join(out)
+    return embed_fonts("\n".join(out))   # embed the Segoe UI font into the SVG
 
 
 def main():

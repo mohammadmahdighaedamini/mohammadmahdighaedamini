@@ -36,6 +36,8 @@ import os
 import sys
 import urllib.request
 
+from fontembed import FONT_STACK, embed_fonts
+
 OUT = "assets/project-timeline.svg"
 
 W = 782                 # same width as the other cards
@@ -128,7 +130,7 @@ FADE = 0.6              # fade out before the loop restarts
 # LOGOS. Every logo is drawn in a 24x24 box. COL = the language color,
 # DRK = dark detail color. (Simplified, single-color versions of the real logos.)
 # ---------------------------------------------------------------------------
-_FONT = 'font-family="Arial,Helvetica,sans-serif"'
+_FONT = f'font-family="{FONT_STACK}"'
 
 
 def _hex(label, size):
@@ -630,8 +632,8 @@ def build(items, kind="featured"):
     if PULSE_STYLE == "heartbeat" and BEAT_MODE == "sequence":
         T = max(T, seq_start + (shown - 1) * BEAT_STEP + BEAT_UP + BEAT_DOWN + 0.6 + FADE)
 
-    font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
-    mono = "Consolas, 'SF Mono', Menlo, monospace"
+    font = FONT_STACK
+    mono = FONT_STACK
 
     out = []
     a = out.append
@@ -789,7 +791,7 @@ def build(items, kind="featured"):
 
     a("</g>")
     a("</svg>")
-    return "\n".join(out)
+    return embed_fonts("\n".join(out))   # embed the Segoe UI font into the SVG
 
 
 def main():
