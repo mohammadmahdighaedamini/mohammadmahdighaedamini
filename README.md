@@ -14,14 +14,26 @@
   <a href="https://dev.to/YOUR_USERNAME"><img src="assets/icons/devto.svg" alt="DEV" width="34" height="34" /></a>
 </p>
 
+<p align="center">
+  <img src="assets/divider.svg" alt="" width="100%" />
+</p>
+
 <!-- بخش انیمیشن: هواپیما از چپ به راست می‌ره و روزهای فعالیتت رو می‌زنه -->
 <p align="center">
   <img src="assets/contrib-ship.svg" alt="Contribution activity" width="100%" />
 </p>
 
+<p align="center">
+  <img src="assets/divider.svg" alt="" width="100%" />
+</p>
+
 <!-- بخش زبان‌ها: درصد زبان‌های ریپوهات، هر ۶ ساعت خودکار آپدیت می‌شه -->
 <p align="center">
   <img src="assets/language-stack.svg" alt="Language stack" width="100%" />
+</p>
+
+<p align="center">
+  <img src="assets/divider.svg" alt="" width="100%" />
 </p>
 
 <!-- بخش پروژه‌ها: ریپوهای pin‌شده‌ت به ترتیب تاریخ ساخت، خودکار آپدیت می‌شه -->
