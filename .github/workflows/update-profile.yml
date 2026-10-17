@@ -44,6 +44,8 @@ jobs:
           git add assets/contrib-ship.svg assets/language-stack.svg assets/project-timeline.svg assets/name-typing.svg
           if ! git diff --cached --quiet; then
             git commit -m "chore: update profile SVGs"
-            git push
+            for i in 1 2 3; do
+              git pull --rebase -X theirs origin main && git push && break
+              sleep 3
+            done
           fi
-
