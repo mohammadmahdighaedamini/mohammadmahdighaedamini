@@ -1,3 +1,8 @@
+<!-- کارت اسم: اسم یوزرنیم گیت‌هابت با افکت تایپ، عکسش ثابته (logo.jpg) -->
+<p align="center">
+  <img src="assets/name-typing.svg" alt="GitHub username" width="100%" />
+</p>
+
 <h1 align="center">سلام 👋</h1>
 
 <p align="center">
