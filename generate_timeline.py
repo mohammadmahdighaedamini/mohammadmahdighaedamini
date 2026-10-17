@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-"Where the work went next" project timeline card (Nightmare background).
+"My Project Journey" project timeline card (Nightmare background).
 
 Repositories sit on a dashed line in the order they were created, alternating
 above and below it. For every project the card shows:
@@ -660,9 +660,9 @@ def build(items, kind="featured"):
       f'fill-opacity=".45" stroke="url(#frame)" stroke-opacity=".4" stroke-width="1.2"/>')
 
     a(f'<text x="{GRID_X}" y="70" font-family="{font}" font-size="24" font-weight="700" '
-      f'fill="#ffffff">Where the work went next</text>')
+      f'fill="#ffffff">My Project Journey</text>')
     a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
-      f'Project launch sequence</text>')
+      f'From my first project to my latest</text>')
 
     # ---------------- animated block (fades out and replays) ----------------
     a("<g>")
@@ -774,8 +774,8 @@ def build(items, kind="featured"):
     if items:
         more = f" · showing {shown} at a time" if extra else ""
         a(f'<text x="{GRID_X}" y="{LINE_Y + 84}" font-family="{font}" font-size="11" fill="#ffffff" '
-          f'fill-opacity=".75">{n} {kind} repositor{"y" if n == 1 else "ies"}{more} · '
-          f'follow the line from first signal to latest motion</text>')
+          f'fill-opacity=".75">{n} {kind} project{"" if n == 1 else "s"}{more} · '
+          f'from oldest to newest</text>')
 
     a("</g>")
     a("</svg>")

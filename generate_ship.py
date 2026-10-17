@@ -275,7 +275,7 @@ def build(weeks, total):
     a(f'<text x="{GRID_X}" y="70" font-family="{font}" font-size="24" font-weight="700" '
       f'fill="#ffffff">Contribution Activity</text>')
     a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
-      f'{total} contributions in the last year</text>')
+      f'{total} contributions in the past year</text>')
 
     # legend (default blue palette)
     sq_right = right - 34

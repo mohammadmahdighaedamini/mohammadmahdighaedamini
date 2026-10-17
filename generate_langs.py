@@ -213,7 +213,7 @@ def build(langs):
     a(f'<text x="{GRID_X}" y="70" font-family="{font}" font-size="24" font-weight="700" '
       f'fill="#ffffff">Language Stack</text>')
     a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
-      f'Repository-weighted technologies</text>')
+      f'Languages I use most across my repositories</text>')
 
     if not rows:
         a(f'<text x="{GRID_X}" y="{ROW_Y0 + 4}" font-family="{font}" font-size="13" fill="#ffffff">'
