@@ -7,12 +7,10 @@ The username is typed letter by letter, waits a while, is erased and typed again
 The font is the same one the other cards use. The blinking cursor has the same purple as
 the beam of the airplane in the contribution card.
 
-Which picture is used (first one that exists):
-  1. a file called profile.png / profile.jpg / profile.webp / profile.svg in the repo root
-     (upload your own square picture, e.g. 512x512, and it is used automatically)
-  2. your GitHub profile picture (downloaded by the script)
-  3. logo.svg / logo.png / logo.webp / logo.jpg in the repo root
-  4. the first letter of your name
+Which picture is used (first one that works):
+  1. your GitHub profile picture (downloaded by the script, shown exactly as it is)
+  2. logo.svg / logo.png / logo.webp / logo.jpg in the repo root
+  3. the first letter of your name
 The name comes from GITHUB_USER (set by the workflow).
 
 Usage:
@@ -39,17 +37,16 @@ MAX_FONT = 40           # biggest font size (long names are made smaller so they
 MIN_FONT = 14
 CHAR_W = 0.62           # average letter width / font size, only used to make long names fit
 
-PROFILE_FILES = ("profile.png", "profile.jpg", "profile.jpeg", "profile.webp", "profile.svg")   # step 1 above
-USE_GITHUB_AVATAR = True   # step 2: True = use your GitHub profile picture when there is no profile.* file
+USE_GITHUB_AVATAR = True   # True = use your GitHub profile picture (falls back to logo.*)
 BOOST_PICTURE = False      # True = make thin / dark pictures (like neon outlines) bolder and brighter so they stay
                            # clear in the small circle. Needs Pillow (pip install pillow); skipped without it.
                            # Off by default: your picture is shown exactly as it is.
-                           # Not applied to your own profile.* file. Set False for a normal photo.
 
 # ---- typing timing (seconds) ----
-TYPE_STEP = 0.13        # time per typed letter           (bigger = slower typing)
+TYPE_STEP = 0.12        # time per typed letter           (bigger = slower typing)
+FADE = 0.09             # each letter fades in / out this long (bigger = softer, 0 = hard jump)
 HOLD = 3.5              # the finished name stays this long
-ERASE_STEP = 0.06       # time per erased letter
+ERASE_STEP = 0.05       # time per erased letter
 GAP = 1.0               # empty pause before typing again
 CURSOR_BLINK = 1.0      # cursor blink period
 
@@ -125,45 +122,6 @@ def boost(picture):
         return picture
 
 
-def fit_square(picture, size=480, margin=1.1):
-    """A wide / non-square picture (like a neon banner) would be cut off by the round frame.
-    Find where the bright content is, crop a square around it, and resample to `size` px
-    (about 4x the circle, sharp on retina screens). Square pictures are left as they are.
-    Needs Pillow; without it the picture is used unchanged."""
-    mime, b64 = picture
-    if mime == "image/svg+xml":
-        return picture
-    try:
-        import io
-        from PIL import Image
-    except ImportError:
-        print("warning: Pillow is not installed, picture not cropped (pip install pillow)", file=sys.stderr)
-        return picture
-    try:
-        img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
-        w, h = img.size
-        if abs(w - h) <= 0.03 * max(w, h):
-            return picture
-        lum = img.convert("L").point(lambda v: 255 if v > 70 else 0)
-        box = lum.getbbox() or (0, 0, w, h)
-        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-        side = min(max(box[2] - box[0], box[3] - box[1]) * margin, w, h)
-        left = min(max(cx - side / 2, 0), w - side)
-        top = min(max(cy - side / 2, 0), h - side)
-        sq = img.crop((round(left), round(top), round(left + side), round(top + side)))
-        sq = sq.resize((size, size), Image.LANCZOS)
-        from PIL import ImageEnhance, ImageFilter            # thin neon lines: a little bolder + brighter
-        sq = sq.filter(ImageFilter.MaxFilter(3))
-        sq = ImageEnhance.Brightness(sq).enhance(1.25)
-        sq = ImageEnhance.Color(sq).enhance(1.25)
-        buf = io.BytesIO()
-        sq.save(buf, "JPEG", quality=92, optimize=True, subsampling=0)
-        return "image/jpeg", base64.b64encode(buf.getvalue()).decode()
-    except Exception as exc:                                     # the card must never break
-        print(f"warning: could not crop the picture: {exc}", file=sys.stderr)
-        return picture
-
-
 def load_logo(files=LOGO_FILES):
     """First existing file of `files` in the repo root -> (mime, base64) or None."""
     for name in files:
@@ -194,7 +152,7 @@ def build(name, picture):
     windows = {k: [] for k in range(n + 1)}
     for idx, (s, k) in enumerate(segs):
         e = segs[idx + 1][0] if idx + 1 < len(segs) else T
-        windows[k].append((s, e))
+        windows[k].append((s, e, idx <= n, n < idx + 1 < len(segs)))   # typing window? / fades out at its end?
 
     out = []
     a = out.append
@@ -240,23 +198,40 @@ def build(name, picture):
     # the typed name: one <text> per step (the first k letters + the cursor); only one is visible
     # at a time. The browser lays the letters out itself, so any font works and the cursor
     # always sits right after the last letter.
+    EPS = 0.002
     for k in range(n + 1):
-        ev = []
-        for s, e in windows[k]:
-            ev.append((s, 1))
-            if e < T:
-                ev.append((e, 0))
-        if ev[0][0] > 0:
-            ev.insert(0, (0.0, 0))
-        kt = ";".join(f"{min(1.0, t / T):.5f}" for t, _ in ev)
-        vals = ";".join(str(v) for _, v in ev)
+        pts = []                                   # (time, opacity) points, linear in between
+        for s_, e_, typing, fades_out in windows[k]:
+            if typing and k > 0 and FADE > 0:      # new letter fades in on top of the old text
+                pts += [(s_, 0.0), (min(s_ + FADE, e_), 1.0)]
+            else:                                  # appears at once (first step / erasing)
+                pts += [(max(s_ - EPS, 0.0), 0.0), (s_, 1.0)] if s_ > 0 else [(0.0, 1.0)]
+            if fades_out and FADE > 0:             # erased letter fades out
+                pts += [(e_, 1.0), (e_ + FADE, 0.0)]
+            elif e_ < T:                           # stays solid until the next letter has fully faded in
+                pts += [(e_, 1.0), (e_ + FADE, 1.0), (e_ + FADE + EPS, 0.0)]
+            else:
+                pts += [(T, 1.0)]
+        clean = []                                 # strictly increasing times, inside 0..T
+        for t_, v_ in sorted(pts, key=lambda x: x[0]):
+            t_ = min(t_, T)
+            if clean and t_ <= clean[-1][0] + 1e-6:
+                if t_ >= T: continue
+                t_ = clean[-1][0] + EPS
+            clean.append((t_, v_))
+        if clean[0][0] > 0:
+            clean.insert(0, (0.0, 0.0))
+        if clean[-1][0] < T:
+            clean.append((T, clean[-1][1]))
+        kt = ";".join(f"{t_ / T:.5f}" for t_, _ in clean)
+        vals = ";".join(f"{v_:g}" for _, v_ in clean)
         a(f'<text x="{TEXT_X}" y="{fmt(base_y)}" font-family="{FONT}" font-size="{fmt(fs)}" '
           f'font-weight="700" fill="#ffffff" opacity="0">'
           f'<animate attributeName="opacity" values="{vals}" keyTimes="{kt}" dur="{T:.3f}s" '
-          f'calcMode="discrete" repeatCount="indefinite"/>'
+          f'calcMode="linear" repeatCount="indefinite"/>'
           f'{html.escape(name[:k])}'
-          f'<tspan fill="{CURSOR_COLOR}" font-weight="400"><animate attributeName="fill-opacity" values="1;0" '
-          f'keyTimes="0;.5" dur="{CURSOR_BLINK}s" calcMode="discrete" repeatCount="indefinite"/>|</tspan>'
+          f'<tspan fill="{CURSOR_COLOR}" font-weight="400"><animate attributeName="fill-opacity" values="1;0;1" '
+          f'keyTimes="0;.5;1" dur="{CURSOR_BLINK}s" calcMode="linear" repeatCount="indefinite"/>|</tspan>'
           f'</text>')
 
     a("</svg>")
@@ -271,14 +246,10 @@ def main():
         name = os.environ.get("GITHUB_USER") or os.environ.get("GITHUB_REPOSITORY_OWNER")
         if not name:
             sys.exit("Set GITHUB_USER (your GitHub username), or run with --demo")
-    picture = load_logo(PROFILE_FILES)                              # 1. your own profile.* file
-    if picture:
-        picture = fit_square(picture)                               #    (wide pictures are centered + sharpened)
-    if not picture:
-        picture = fetch_avatar(name, token) if USE_GITHUB_AVATAR else None   # 2. GitHub profile picture
-        picture = picture or load_logo()                            # 3. logo.*  (4. letter)
-        if picture and BOOST_PICTURE:
-            picture = boost(picture)
+    picture = fetch_avatar(name, token) if USE_GITHUB_AVATAR else None   # 1. GitHub profile picture
+    picture = picture or load_logo()                                     # 2. logo.*  (3. letter)
+    if picture and BOOST_PICTURE:
+        picture = boost(picture)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:
         fh.write(build(name, picture))
