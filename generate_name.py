@@ -2,40 +2,51 @@
 """
 "Name" banner card, same look as the other cards (Nightmare background).
 
-A fixed round picture (your logo.jpg / logo.png / ... from the repo root) on the left,
-and your GitHub username on the right. The username is typed letter by letter
-(like readme-typing-svg), waits a moment, is erased and typed again, forever.
-No GitHub API call is needed: the name comes from GITHUB_USER (set by the workflow).
+Your GitHub profile picture (round) on the left, and your GitHub username on the right.
+The username is typed letter by letter, waits a while, is erased and typed again, forever.
+The font is the same one the other cards use. The blinking cursor has the same purple as
+the beam of the airplane in the contribution card.
+
+The picture is taken from your GitHub profile. If that is not possible it falls back to
+logo.svg / logo.png / logo.webp / logo.jpg in the repo root, and finally to the first letter
+of your name. The name comes from GITHUB_USER (set by the workflow).
 
 Usage:
-  GITHUB_USER=yourname python generate_name.py     # real name
-  python generate_name.py --demo                   # sample name
+  GITHUB_USER=yourname GITHUB_TOKEN=... python generate_name.py     # real name + picture
+  python generate_name.py --demo                                    # sample name
 Output: assets/name-typing.svg
 """
 import base64
 import html
+import json
 import os
 import sys
+import urllib.request
 
 OUT = "assets/name-typing.svg"
 
 W = 782                 # same width as the other cards
-H = 170
+H = 200
 PIC_R = 44              # radius of the round picture
-PIC_CX = 104            # center x of the picture
-TEXT_X = 182            # where the name starts
+RING_GAP = 6            # space between the picture and its ring
+PIC_CX = 100            # center x of the picture (keeps ~22px free space to the inner frame)
+TEXT_X = 186            # where the name starts
 MAX_FONT = 40           # biggest font size (long names are made smaller so they always fit)
 MIN_FONT = 14
-CHAR_W = 0.6            # width of one letter / font size (monospace fonts are ~0.6)
+CHAR_W = 0.62           # average letter width / font size, only used to make long names fit
+
+PICTURE = "avatar"      # "avatar" = your GitHub profile picture (falls back to logo.*)
+                        # "logo"   = only the logo.* file from the repo root
 
 # ---- typing timing (seconds) ----
-TYPE_STEP = 0.09        # time per typed letter
-HOLD = 2.5              # the finished name stays this long
-ERASE_STEP = 0.04       # time per erased letter
-GAP = 0.6               # empty pause before typing again
-CURSOR_BLINK = 0.9      # cursor blink period
+TYPE_STEP = 0.13        # time per typed letter           (bigger = slower typing)
+HOLD = 3.5              # the finished name stays this long
+ERASE_STEP = 0.06       # time per erased letter
+GAP = 1.0               # empty pause before typing again
+CURSOR_BLINK = 1.0      # cursor blink period
 
-FONT = "'Fira Code', 'JetBrains Mono', Consolas, 'SF Mono', Menlo, 'DejaVu Sans Mono', monospace"
+CURSOR_COLOR = "#a855f7"   # same purple as the airplane beam in the contribution card
+FONT = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"   # same font as the other cards
 
 LOGO_FILES = ("logo.svg", "logo.png", "logo.webp", "logo.jpg", "logo.jpeg")   # looked up in the repo root
 MAX_LOGO_KB = 400       # bigger files are skipped (they would make the card heavy)
@@ -54,6 +65,27 @@ def fmt(v):
     return f"{v:.3f}".rstrip("0").rstrip(".") if isinstance(v, float) else str(v)
 
 
+# ---------------- picture ----------------
+def fetch_avatar(user, token):
+    """Your GitHub profile picture -> (mime, base64) or None."""
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "name-card"}
+    if token:
+        headers["Authorization"] = f"bearer {token}"
+    try:
+        req = urllib.request.Request(f"https://api.github.com/users/{user}", headers=headers)
+        with urllib.request.urlopen(req, timeout=20) as r:
+            url = json.load(r)["avatar_url"]
+        url += ("&" if "?" in url else "?") + "s=256"          # 256x256 is plenty for a small circle
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "name-card"}),
+                                    timeout=20) as r:
+            mime = (r.headers.get("Content-Type") or "image/png").split(";")[0].strip()
+            data = r.read()
+        return mime, base64.b64encode(data).decode()
+    except Exception as exc:                                    # the card must never break
+        print(f"warning: could not load the GitHub profile picture: {exc}", file=sys.stderr)
+        return None
+
+
 def load_logo():
     """First logo.* in the repo root -> (mime, base64) or None."""
     for name in LOGO_FILES:
@@ -69,31 +101,22 @@ def load_logo():
     return None
 
 
-def discrete(attr, pairs, T, extra=""):
-    """pairs = [(time, value), ...] -> a step-by-step (no smoothing) animation."""
-    kt = ";".join(f"{min(1.0, t / T):.5f}" for t, _ in pairs)
-    vals = ";".join(fmt(v) for _, v in pairs)
-    return (f'<animate attributeName="{attr}" values="{vals}" keyTimes="{kt}" '
-            f'dur="{T:.3f}s" calcMode="discrete" repeatCount="indefinite"{extra}/>')
-
-
-def build(name, logo):
+# ---------------- svg ----------------
+def build(name, picture):
     n = max(1, len(name))
-    fs = max(MIN_FONT, min(MAX_FONT, (W - 28 - 24 - TEXT_X) / (n * CHAR_W)))
-    cw = fs * CHAR_W
-    full = n * cw
+    fs = max(MIN_FONT, min(MAX_FONT, (W - 28 - 26 - TEXT_X) / (n * CHAR_W)))
     cy = H / 2
     base_y = cy + fs * 0.35
-    box_y, box_h = cy - fs * 0.62, fs * 1.24
 
-    # typing timeline: width of the visible part of the name
-    T = n * TYPE_STEP + HOLD + n * ERASE_STEP + GAP
-    pairs = [(0.0, 0.0)]
-    for i in range(1, n + 1):                         # type
-        pairs.append((i * TYPE_STEP, i * cw))
+    # timeline: which part of the name is shown at which moment
     t0 = n * TYPE_STEP + HOLD
-    for j in range(1, n + 1):                         # erase
-        pairs.append((t0 + j * ERASE_STEP, (n - j) * cw))
+    T = t0 + n * ERASE_STEP + GAP
+    segs = [(i * TYPE_STEP, i) for i in range(n + 1)]                 # typing 0..n letters
+    segs += [(t0 + j * ERASE_STEP, n - j) for j in range(1, n + 1)]   # erasing n-1..0 letters
+    windows = {k: [] for k in range(n + 1)}
+    for idx, (s, k) in enumerate(segs):
+        e = segs[idx + 1][0] if idx + 1 < len(segs) else T
+        windows[k].append((s, e))
 
     out = []
     a = out.append
@@ -102,7 +125,6 @@ def build(name, logo):
     a(f"""<defs>
 <clipPath id="card"><rect x="6" y="6" width="{W - 12}" height="{H - 12}" rx="22"/></clipPath>
 <clipPath id="pic"><circle cx="{PIC_CX}" cy="{fmt(cy)}" r="{PIC_R}"/></clipPath>
-<clipPath id="typed"><rect x="{TEXT_X}" y="{fmt(box_y)}" width="0" height="{fmt(box_h)}">{discrete("width", pairs, T)}</rect></clipPath>
 <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
 <stop offset="0" stop-color="#1d0316"/><stop offset=".45" stop-color="#0d0618"/><stop offset="1" stop-color="#04061a"/></linearGradient>
 <radialGradient id="gPink"><stop offset="0" stop-color="#ff3fa8" stop-opacity=".30"/><stop offset="1" stop-color="#ff3fa8" stop-opacity="0"/></radialGradient>
@@ -124,46 +146,58 @@ def build(name, logo):
     a(f'<rect x="28" y="28" width="{W - 56}" height="{H - 56}" rx="16" fill="#07030f" '
       f'fill-opacity=".45" stroke="url(#frame)" stroke-opacity=".4" stroke-width="1.2"/>')
 
-    # the fixed round picture
+    # the round picture
     a(f'<circle cx="{PIC_CX}" cy="{fmt(cy)}" r="{PIC_R}" fill="#0b0716"/>')
-    if logo:
-        mime, b64 = logo
+    if picture:
+        mime, b64 = picture
         a(f'<image href="data:{mime};base64,{b64}" x="{PIC_CX - PIC_R}" y="{fmt(cy - PIC_R)}" '
           f'width="{2 * PIC_R}" height="{2 * PIC_R}" preserveAspectRatio="xMidYMid slice" '
           f'clip-path="url(#pic)"/>')
-    else:                                             # no logo file: show the first letter instead
+    else:                                             # nothing found: show the first letter
         a(f'<text x="{PIC_CX}" y="{fmt(cy + 14)}" text-anchor="middle" font-family="{FONT}" '
           f'font-size="40" font-weight="700" fill="#ffffff">{html.escape(name[:1].upper())}</text>')
-    a(f'<circle cx="{PIC_CX}" cy="{fmt(cy)}" r="{PIC_R + 7}" fill="none" stroke="url(#frame)" stroke-width="2"/>')
+    a(f'<circle cx="{PIC_CX}" cy="{fmt(cy)}" r="{PIC_R + RING_GAP}" fill="none" '
+      f'stroke="url(#frame)" stroke-width="2"/>')
 
-    # the typed name
-    a('<g clip-path="url(#typed)">')
-    a(f'<text x="{TEXT_X}" y="{fmt(base_y)}" font-family="{FONT}" font-size="{fmt(fs)}" '
-      f'font-weight="700" fill="#ffffff" textLength="{fmt(full)}" lengthAdjust="spacing" '
-      f'xml:space="preserve">{html.escape(name)}</text>')
-    a("</g>")
-
-    # blinking cursor that follows the end of the typed part
-    a(f'<rect x="{TEXT_X}" y="{fmt(box_y)}" width="3" height="{fmt(box_h)}" rx="1.5" fill="#ff4fb8">')
-    a(discrete("x", [(t, TEXT_X + v) for t, v in pairs], T))
-    a(f'<animate attributeName="opacity" values="1;0" keyTimes="0;.5" dur="{CURSOR_BLINK}s" '
-      f'calcMode="discrete" repeatCount="indefinite"/>')
-    a("</rect>")
+    # the typed name: one <text> per step (the first k letters + the cursor); only one is visible
+    # at a time. The browser lays the letters out itself, so any font works and the cursor
+    # always sits right after the last letter.
+    for k in range(n + 1):
+        ev = []
+        for s, e in windows[k]:
+            ev.append((s, 1))
+            if e < T:
+                ev.append((e, 0))
+        if ev[0][0] > 0:
+            ev.insert(0, (0.0, 0))
+        kt = ";".join(f"{min(1.0, t / T):.5f}" for t, _ in ev)
+        vals = ";".join(str(v) for _, v in ev)
+        a(f'<text x="{TEXT_X}" y="{fmt(base_y)}" font-family="{FONT}" font-size="{fmt(fs)}" '
+          f'font-weight="700" fill="#ffffff" opacity="0">'
+          f'<animate attributeName="opacity" values="{vals}" keyTimes="{kt}" dur="{T:.3f}s" '
+          f'calcMode="discrete" repeatCount="indefinite"/>'
+          f'{html.escape(name[:k])}'
+          f'<tspan fill="{CURSOR_COLOR}" font-weight="400"><animate attributeName="fill-opacity" values="1;0" '
+          f'keyTimes="0;.5" dur="{CURSOR_BLINK}s" calcMode="discrete" repeatCount="indefinite"/>|</tspan>'
+          f'</text>')
 
     a("</svg>")
     return "\n".join(out)
 
 
 def main():
+    token = os.environ.get("GITHUB_TOKEN")
     if "--demo" in sys.argv:
         name = "mohammadmahdighaedamini"
     else:
         name = os.environ.get("GITHUB_USER") or os.environ.get("GITHUB_REPOSITORY_OWNER")
         if not name:
             sys.exit("Set GITHUB_USER (your GitHub username), or run with --demo")
+    picture = fetch_avatar(name, token) if PICTURE == "avatar" else None
+    picture = picture or load_logo()
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:
-        fh.write(build(name, load_logo()))
+        fh.write(build(name, picture))
     print(f"wrote {OUT}")
 
 
