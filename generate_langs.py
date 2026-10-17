@@ -5,8 +5,12 @@
 Languages are weighted by repository: every public, non-fork repo counts the same,
 and is split between its languages by their share of the code. The top languages
 are shown as bars. Each bar fills from 0 up to its percentage while the number
-counts up with it (e.g. HTML: 0% -> 76%), holds for a few seconds, then fades and
-plays again.
+counts up with it (e.g. HTML: 0% -> 76%).
+
+Synced with the contribution card: both loops start together and share the same
+cycle length (read from assets/contrib-ship.svg, so run generate_ship.py first).
+The bars finish at their own pace, stay full, and everything resets only when the
+jet reaches the end and the contribution card starts over.
 
 Usage:
   GITHUB_TOKEN=... GITHUB_USER=yourname python generate_langs.py   # real data
@@ -16,6 +20,7 @@ Output: assets/language-stack.svg
 import html
 import json
 import os
+import re
 import sys
 import urllib.request
 
@@ -49,7 +54,8 @@ FIRST_BAR = 0.5         # first bar starts after this
 BAR_DELAY = 0.18        # delay between rows
 BAR_DUR = 2.2           # time for a bar to fill from 0 to its percentage
 HOLD = 4.0              # finished card stays visible this long
-FADE = 0.6              # fade out before the loop restarts
+FADE = 0.7              # fade out before the loop restarts (same as the jet card)
+SHIP_SVG = "assets/contrib-ship.svg"
 EASE = (0.2, 0.7, 0.3, 1.0)   # bar easing (fast start, soft landing); numbers follow it
 
 
@@ -143,6 +149,16 @@ def time_for(progress):
     return (lo + hi) / 2
 
 
+def ship_cycle():
+    """Loop length (s) of the contribution card, so both cards restart together."""
+    try:
+        with open(SHIP_SVG, encoding="utf-8") as fh:
+            durs = [float(d) for d in re.findall(r'dur="([0-9.]+)s"', fh.read())]
+    except OSError:
+        return 0.0
+    return max(durs, default=0.0)
+
+
 # ---------------- svg helpers ----------------
 def fmt(v):
     return f"{v:.2f}".rstrip("0").rstrip(".")
@@ -179,7 +195,8 @@ def build(langs):
 
     n = max(1, len(rows))
     H = ROW_Y0 + (n - 1) * ROW_GAP + 60
-    T = FIRST_BAR + (n - 1) * BAR_DELAY + BAR_DUR + HOLD + FADE
+    own = FIRST_BAR + (n - 1) * BAR_DELAY + BAR_DUR + FADE
+    T = max(own + HOLD, ship_cycle())   # same loop length as the jet card
     font = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"
     mono = "Consolas, 'SF Mono', Menlo, monospace"
 
@@ -221,7 +238,7 @@ def build(langs):
 
     # ---------------- bars (the whole block fades out and replays) ----------------
     a("<g>")
-    a(anim("opacity", [1, 1, 0, 0], [0, T - FADE, T - 0.05, T], T))
+    a(anim("opacity", [0, 1, 1, 0], [0, 0.5, T - FADE, T], T))   # same fade in/out as the jet card
 
     for i, (name, p, color) in enumerate(rows):
         y = ROW_Y0 + i * ROW_GAP
