@@ -83,7 +83,7 @@ def fetch_avatar(user, token):
         req = urllib.request.Request(f"https://api.github.com/users/{user}", headers=headers)
         with urllib.request.urlopen(req, timeout=20) as r:
             url = json.load(r)["avatar_url"]
-        url += ("&" if "?" in url else "?") + "s=400"          # 400x400: sharp even on high-resolution screens
+        url += ("&" if "?" in url else "?") + "s=512"          # 512x512: sharp even on high-resolution screens
         with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "name-card"}),
                                     timeout=20) as r:
             mime = (r.headers.get("Content-Type") or "image/png").split(";")[0].strip()
