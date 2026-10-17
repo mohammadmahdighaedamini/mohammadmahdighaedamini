@@ -11,11 +11,7 @@
   &nbsp;&nbsp;&nbsp;
   <a href="https://t.me/YOUR_USERNAME"><img src="assets/icons/telegram.svg" alt="Telegram" width="34" height="34" /></a>
   &nbsp;&nbsp;&nbsp;
-  <a href="https://discord.com/users/YOUR_ID"><img src="assets/icons/discord.svg" alt="Discord" width="34" height="34" /></a>
-  &nbsp;&nbsp;&nbsp;
   <a href="https://dev.to/YOUR_USERNAME"><img src="assets/icons/devto.svg" alt="DEV" width="34" height="34" /></a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="https://ko-fi.com/YOUR_USERNAME"><img src="assets/icons/kofi.svg" alt="Ko-fi" width="34" height="34" /></a>
 </p>
 
 <!-- بخش انیمیشن: هواپیما از چپ به راست می‌ره و روزهای فعالیتت رو می‌زنه -->
