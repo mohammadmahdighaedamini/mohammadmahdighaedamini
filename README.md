@@ -1,15 +1,22 @@
-<!-- کارت اسم: اسم یوزرنیم گیت‌هابت با افکت تایپ، عکسش ثابته (logo.jpg) -->
+<!-- کارت اسم: اسم ثابته و کد مورس (NIGHTMARE) با افکت تایپ حرکت می‌کنه -->
 <p align="center">
-  <img src="assets/name-typing.svg" alt="GitHub username" width="100%" />
+  <img src="assets/name-morse.svg" alt="x7Nightmare8x" width="100%" />
 </p>
 
-<h1 align="center">سلام 👋</h1>
-
+<!-- آیکون‌های شبکه‌های اجتماعی: هم‌اندازه و هم‌رنگ با متن. لینک‌های YOUR_... رو با آدرس خودت عوض کن -->
 <p align="center">
-  یه بخش درباره‌ی خودت اینجا بنویس: چی کار می‌کنی، روی چی کار می‌کنی، به چی علاقه داری.
+  <a href="https://www.youtube.com/@YOUR_CHANNEL"><img src="assets/icons/youtube.svg" alt="YouTube" width="34" height="34" /></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://www.linkedin.com/in/YOUR_USERNAME"><img src="assets/icons/linkedin.svg" alt="LinkedIn" width="34" height="34" /></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://t.me/YOUR_USERNAME"><img src="assets/icons/telegram.svg" alt="Telegram" width="34" height="34" /></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://discord.com/users/YOUR_ID"><img src="assets/icons/discord.svg" alt="Discord" width="34" height="34" /></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://dev.to/YOUR_USERNAME"><img src="assets/icons/devto.svg" alt="DEV" width="34" height="34" /></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://ko-fi.com/YOUR_USERNAME"><img src="assets/icons/kofi.svg" alt="Ko-fi" width="34" height="34" /></a>
 </p>
-
----
 
 <!-- بخش انیمیشن: هواپیما از چپ به راست می‌ره و روزهای فعالیتت رو می‌زنه -->
 <p align="center">
