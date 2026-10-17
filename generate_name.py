@@ -16,7 +16,8 @@ The name comes from GITHUB_USER (set by the workflow).
 Usage:
   GITHUB_USER=yourname GITHUB_TOKEN=... python generate_name.py     # real name + picture
   python generate_name.py --demo                                    # sample name
-Output: assets/name-typing.svg
+  python generate_name.py --demo --morse all                        # all 4 Morse variants (A, B, C, D)
+Output: assets/name-typing.svg   (with --morse all: assets/name-typing-A.svg ... -D.svg)
 """
 import base64
 import html
@@ -28,7 +29,8 @@ import urllib.request
 OUT = "assets/name-typing.svg"
 
 W = 782                 # same width as the other cards
-H = 240
+H = 288                 # card height (taller than before: the Morse line lives under the picture)
+CY = 112                # vertical center of the picture and the name
 PIC_R = 62              # radius of the round picture (bigger = more detail)
 RING_GAP = 6            # space between the picture and its ring
 PIC_CX = 120            # center x of the picture (keeps ~24px free space to the inner frame)
@@ -52,6 +54,26 @@ CURSOR_BLINK = 1.0      # cursor blink period
 
 CURSOR_COLOR = "#a855f7"   # same purple as the airplane beam in the contribution card
 FONT = "Segoe UI, Ubuntu, Helvetica, Arial, sans-serif"   # same font as the other cards
+
+# ---- Morse subtitle (under the picture and the name) ----
+MORSE_TEXT = ".. -- -. .. --. .... - -- .- .-. ."   # letters are separated by a space
+MORSE_STYLE = "B"       # "A" typed text | "B" signal lamps | "C" karaoke + decoded letters | "D" telegraph wave | "off"
+MORSE_UNIT = 0.09       # seconds of one Morse "dot" (dash = 3 units)  (bigger = slower)
+MORSE_DELAY = 0.4       # wait after the name is fully typed, then the Morse starts
+MORSE_LINGER = 1.6      # the finished Morse stays visible this long, then fades out
+MORSE_FADE = 0.5        # fade-out time
+MORSE_PAUSE = 0.8       # extra empty pause at the end of the cycle, then everything repeats
+SUB_Y = 218             # vertical center of the Morse line
+MORSE_COLOR = "#a855f7"  # same purple as the cursor
+MORSE_SOFT = "#e9d5ff"   # soft light purple for finished symbols
+MONO = "Consolas, 'DejaVu Sans Mono', 'Courier New', monospace"
+DOT_CHAR, DASH_CHAR = "\u2022", "\u2014"          # how dots and dashes are drawn in the text variants (A, C)
+_DECODE = {".-": "A", "-...": "B", "-.-.": "C", "-..": "D", ".": "E", "..-.": "F", "--.": "G",
+           "....": "H", "..": "I", ".---": "J", "-.-": "K", ".-..": "L", "--": "M", "-.": "N",
+           "---": "O", ".--.": "P", "--.-": "Q", ".-.": "R", "...": "S", "-": "T", "..-": "U",
+           "...-": "V", ".--": "W", "-..-": "X", "-.--": "Y", "--..": "Z",
+           "-----": "0", ".----": "1", "..---": "2", "...--": "3", "....-": "4",
+           ".....": "5", "-....": "6", "--...": "7", "---..": "8", "----.": "9"}
 
 LOGO_FILES = ("logo.svg", "logo.png", "logo.webp", "logo.jpg", "logo.jpeg")   # looked up in the repo root
 MAX_LOGO_KB = 400       # bigger files are skipped (they would make the card heavy)
@@ -137,16 +159,186 @@ def load_logo(files=LOGO_FILES):
     return None
 
 
+# ---------------- morse subtitle ----------------
+def morse_schedule(text, u):
+    """-> (groups, schedule, total). schedule[g] = [(start, length, '.' or '-'), ...] in seconds.
+    Real Morse timing: dot = 1 unit, dash = 3, gap inside a letter = 1, gap between letters = 3."""
+    groups = text.split()
+    sched, t = [], 0.0
+    for gi, g in enumerate(groups):
+        syms = []
+        for si, s in enumerate(g):
+            d = u if s == "." else 3 * u
+            syms.append((t, d, s))
+            t += d
+            if si < len(g) - 1:
+                t += u
+        sched.append(syms)
+        if gi < len(groups) - 1:
+            t += 3 * u
+    return groups, sched, t
+
+
+def anim(attr, T, v0, changes):
+    """One <animate> over the whole cycle T. Starts at v0; changes = [(time, new_value, fade_seconds), ...]
+    in time order. Whatever the value is at the end of the cycle must equal v0 (so the loop is seamless)."""
+    pts, cur = [(0.0, v0)], v0
+    for t, v, dur in changes:
+        t = min(max(t, pts[-1][0]), T)
+        pts.append((t, cur))
+        pts.append((min(max(t + dur, t), T), v))
+        cur = v
+    pts.append((T, cur))
+    kt = ";".join(f"{t / T:.5f}" for t, _ in pts)
+    vals = ";".join(f"{v:g}" for _, v in pts)
+    return (f'<animate attributeName="{attr}" values="{vals}" keyTimes="{kt}" dur="{T:.3f}s" '
+            f'calcMode="linear" repeatCount="indefinite"/>')
+
+
+def _wrap(inner, ts0, te, T):
+    """Whole Morse line: fades in just before it starts, fades out at `te`."""
+    fade = anim("opacity", T, 0, [(max(0.0, ts0 - 0.2), 1, 0.2), (te, 0, MORSE_FADE)])
+    return [f'<g opacity="0">{fade}'] + inner + ["</g>"]
+
+
+def _glyphs(group):
+    return "".join(DOT_CHAR if c == "." else DASH_CHAR for c in group)
+
+
+# A: the dots and dashes are typed one by one, with the real Morse rhythm
+def _morse_A(m, ts0, te, T):
+    groups, sched, D = m
+    tr = te + MORSE_FADE + 0.03                      # everything is invisible now: safe to reset
+    spans = []
+    for gi, syms in enumerate(sched):
+        for t, d, s in syms:
+            an = anim("fill-opacity", T, 0, [(ts0 + t, 1, 0.05), (tr, 0, 0.01)])
+            spans.append(f'<tspan fill-opacity="0">{an}{DOT_CHAR if s == "." else DASH_CHAR}</tspan>')
+        if gi < len(sched) - 1:
+            spans.append("<tspan>&#160;</tspan>")
+    txt = (f'<text x="{fmt(W / 2)}" y="{SUB_Y + 7}" text-anchor="middle" font-family="{MONO}" font-size="22" '
+           f'font-weight="700" letter-spacing="6" fill="{MORSE_SOFT}">{"".join(spans)}</text>')
+    return _wrap([txt], ts0, te, T)
+
+
+# B: a row of signal lamps; each lamp flashes for exactly as long as its dot / dash
+def _morse_B(m, ts0, te, T):
+    groups, sched, D = m
+    tr = te + MORSE_FADE + 0.03
+    h, dot_w, dash_w, ig, lg = 8, 8, 26, 7, 18
+    items, x = [], 0.0
+    for gi, syms in enumerate(sched):
+        for si, (t, d, s) in enumerate(syms):
+            items.append((x, dot_w if s == "." else dash_w, t, d))
+            x += (dot_w if s == "." else dash_w) + (ig if si < len(syms) - 1 else 0)
+        if gi < len(sched) - 1:
+            x += lg
+    total = x
+    sc = min(1.0, 620 / total)
+    base, settled, flash = [], [], []
+    for x, w, t, d in items:
+        r = f'x="{fmt(x)}" y="{-h // 2}" width="{w}" height="{h}" rx="{h // 2}"'
+        s0 = ts0 + t
+        base.append(f'<rect {r} fill="{MORSE_SOFT}" fill-opacity=".16"/>')
+        settled.append(f'<rect {r} fill="{MORSE_COLOR}" opacity="0">'
+                       f'{anim("opacity", T, 0, [(s0, 1, 0.03), (tr, 0, 0.01)])}</rect>')
+        flash.append(f'<rect {r} fill="#ffe9fb" opacity="0" filter="url(#mglow)">'
+                     f'{anim("opacity", T, 0, [(s0, 1, 0.02), (s0 + d, 0, 0.15)])}</rect>')
+    defs = (f'<defs><filter id="mglow" filterUnits="userSpaceOnUse" x="-20" y="-24" width="{fmt(total + 40)}" '
+            f'height="48"><feGaussianBlur stdDeviation="3.2" result="b"/>'
+            f'<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>')
+    g = (f'<g transform="translate({fmt(W / 2)} {SUB_Y}) scale({sc:.4f}) translate({fmt(-total / 2)} 0)">'
+         + "".join(base) + "".join(settled) + "".join(flash) + "</g>")
+    return [defs] + _wrap([g], ts0, te, T)
+
+
+# C: subtitle / karaoke style. Each letter's code lights up purple while it "plays",
+#    then the decoded letter appears under it.
+def _morse_C(m, ts0, te, T):
+    groups, sched, D = m
+    tr = te + MORSE_FADE + 0.03
+    N = len(groups)
+    maxlen = max(len(g) for g in groups)
+    fs, ls = 17.0, 3.0
+    colw = maxlen * (fs * 0.6 + ls) + 7
+    if colw * N > 660:                               # long texts: shrink so they always fit
+        k = 660 / (colw * N)
+        fs, ls, colw = fs * k, ls * k, colw * k
+    out = []
+    for i, (g, syms) in enumerate(zip(groups, sched)):
+        x = fmt(W / 2 + (i - (N - 1) / 2) * colw)
+        gs = ts0 + syms[0][0]
+        ge = ts0 + syms[-1][0] + syms[-1][1]
+        txt = _glyphs(g)
+        common = (f'x="{x}" y="{SUB_Y - 2}" text-anchor="middle" font-family="{MONO}" font-size="{fs:.2f}" '
+                  f'font-weight="700" letter-spacing="{ls:.2f}"')
+        out.append(f'<text {common} fill="{MORSE_SOFT}" fill-opacity=".22">{txt}</text>')
+        out.append(f'<text {common} fill="{MORSE_COLOR}" opacity="0">'
+                   f'{anim("opacity", T, 0, [(gs, 1, 0.04), (ge, 0, 0.05)])}{txt}</text>')
+        out.append(f'<text {common} fill="{MORSE_SOFT}" opacity="0">'
+                   f'{anim("opacity", T, 0, [(ge, 1, 0.05), (tr, 0, 0.01)])}{txt}</text>')
+        out.append(f'<text x="{x}" y="{SUB_Y + 24}" text-anchor="middle" font-family="{FONT}" font-size="20" '
+                   f'font-weight="700" fill="#ffffff" opacity="0">'
+                   f'{anim("opacity", T, 0, [(ge, 1, 0.2), (tr, 0, 0.01)])}{html.escape(_DECODE.get(g, "?"))}</text>')
+    return _wrap(out, ts0, te, T)
+
+
+# D: telegraph / oscilloscope line: the signal is drawn from left to right, a bright scan line leads the way.
+#    The width of every pulse is proportional to its real Morse duration.
+def _morse_D(m, ts0, te, T):
+    groups, sched, D = m
+    tr = te + MORSE_FADE + 0.03
+    wd = 600.0
+    x0 = W / 2 - wd / 2
+    px = wd / D
+    yl, yh = SUB_Y + 9, SUB_Y - 13
+    d = [f"M{x0:.2f} {yl}"]
+    for syms in sched:
+        for t, dur, s in syms:
+            d.append(f"H{x0 + t * px:.2f}V{yh}H{x0 + (t + dur) * px:.2f}V{yl}")
+    d.append(f"H{x0 + wd:.2f}")
+    path = "".join(d)
+    run = [(ts0, 1, D), (tr, 0, 0.01)]
+    defs = (f'<defs><clipPath id="mclip"><rect x="{x0 - 8:.2f}" y="{SUB_Y - 34}" width="0" height="68">'
+            f'{anim("width", T, 0, [(ts0, wd + 16, D), (tr, 0, 0.01)])}</rect></clipPath></defs>')
+    scan = (f'<rect x="{x0 - 8:.2f}" y="{SUB_Y - 22}" width="2" height="44" rx="1" fill="#ffe9fb" opacity="0">'
+            f'{anim("x", T, x0 - 8, [(ts0, x0 + wd + 8, D), (tr, x0 - 8, 0.01)])}'
+            f'{anim("opacity", T, 0, [(ts0, 1, 0.05), (ts0 + D, 0, 0.25)])}</rect>'
+            f'<rect x="{x0 - 10:.2f}" y="{SUB_Y - 22}" width="6" height="44" rx="3" fill="{MORSE_COLOR}" '
+            f'fill-opacity=".35" opacity="0">'
+            f'{anim("x", T, x0 - 10, [(ts0, x0 + wd + 6, D), (tr, x0 - 10, 0.01)])}'
+            f'{anim("opacity", T, 0, [(ts0, 1, 0.05), (ts0 + D, 0, 0.25)])}</rect>')
+    body = [f'<path d="{path}" fill="none" stroke="{MORSE_SOFT}" stroke-opacity=".14" stroke-width="2" '
+            f'stroke-linejoin="round"/>',
+            f'<g clip-path="url(#mclip)">'
+            f'<path d="{path}" fill="none" stroke="url(#frame)" stroke-opacity=".28" stroke-width="7" '
+            f'stroke-linejoin="round"/>'
+            f'<path d="{path}" fill="none" stroke="url(#frame)" stroke-width="2.4" stroke-linejoin="round" '
+            f'stroke-linecap="round"/></g>',
+            scan]
+    return [defs] + _wrap(body, ts0, te, T)
+
+
+MORSE_RENDERERS = {"A": _morse_A, "B": _morse_B, "C": _morse_C, "D": _morse_D}
+
+
 # ---------------- svg ----------------
-def build(name, picture):
+def build(name, picture, morse_style=None):
     n = max(1, len(name))
     fs = max(MIN_FONT, min(MAX_FONT, (W - 28 - 26 - TEXT_X) / (n * CHAR_W)))
-    cy = H / 2
+    cy = CY
     base_y = cy + fs * 0.35
 
     # timeline: which part of the name is shown at which moment
-    t0 = n * TYPE_STEP + HOLD
-    T = t0 + n * ERASE_STEP + GAP
+    style = str(MORSE_STYLE if morse_style is None else morse_style).upper()
+    morse = None
+    hold, gap = HOLD, GAP
+    if style in MORSE_RENDERERS:                       # the name waits until the Morse has finished
+        morse = morse_schedule(MORSE_TEXT, MORSE_UNIT)
+        hold = max(HOLD, MORSE_DELAY + morse[2] + MORSE_LINGER)
+        gap = max(GAP, MORSE_FADE + MORSE_PAUSE)
+    t0 = n * TYPE_STEP + hold
+    T = t0 + n * ERASE_STEP + gap
     segs = [(i * TYPE_STEP, i) for i in range(n + 1)]                 # typing 0..n letters
     segs += [(t0 + j * ERASE_STEP, n - j) for j in range(1, n + 1)]   # erasing n-1..0 letters
     windows = {k: [] for k in range(n + 1)}
@@ -241,6 +433,10 @@ def build(name, picture):
           f'values="1;0;1" keyTimes="0;.5;1" dur="{CURSOR_BLINK}s" calcMode="linear" repeatCount="indefinite"/>|</tspan>'
           f'</text>')
 
+    if morse:                                          # the Morse subtitle under the picture and the name
+        for line in MORSE_RENDERERS[style](morse, n * TYPE_STEP + MORSE_DELAY, t0, T):
+            a(line)
+
     a("</svg>")
     return "\n".join(out)
 
@@ -258,9 +454,17 @@ def main():
     if picture and BOOST_PICTURE:
         picture = boost(picture)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as fh:
-        fh.write(build(name, picture))
-    print(f"wrote {OUT}")
+
+    style = None                                   # --morse A|B|C|D|all|off  (default: MORSE_STYLE)
+    if "--morse" in sys.argv:
+        i = sys.argv.index("--morse")
+        style = sys.argv[i + 1] if i + 1 < len(sys.argv) else sys.exit("--morse needs A, B, C, D, all or off")
+    styles = sorted(MORSE_RENDERERS) if (style or "").lower() == "all" else [style]
+    for st in styles:
+        out = OUT if len(styles) == 1 else OUT.replace(".svg", f"-{st}.svg")
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(build(name, picture, st))
+        print(f"wrote {out}")
 
 
 if __name__ == "__main__":
