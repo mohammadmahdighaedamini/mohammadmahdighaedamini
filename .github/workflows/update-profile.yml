@@ -1,1 +1,49 @@
+name: Update profile SVGs
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # هر ۶ ساعت
+  workflow_dispatch:         # اجرای دستی از تب Actions
+  push:
+    branches: [main]         # با هر تغییر در main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-profile
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow (crops the profile picture sharply)
+        run: pip install pillow
+
+      - name: Generate SVGs
+        run: |
+          python generate_ship.py
+          python generate_langs.py
+          python generate_timeline.py
+          python generate_name.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER: ${{ github.repository_owner }}
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/contrib-ship.svg assets/language-stack.svg assets/project-timeline.svg assets/name-typing.svg
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update profile SVGs"
+            git push
+          fi
 
