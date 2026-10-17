@@ -167,6 +167,7 @@ def jet_svg():
 
 
 def build(weeks, total):
+    active_days = sum(1 for w in weeks for d in w if d[2] > 0)   # days with at least one contribution
     cols = len(weeks)
     grid_w = cols * P - GAP
     W = GRID_X * 2 + grid_w
@@ -275,7 +276,7 @@ def build(weeks, total):
     a(f'<text x="{GRID_X}" y="70" font-family="{font}" font-size="24" font-weight="700" '
       f'fill="#ffffff">Contribution Activity</text>')
     a(f'<text x="{GRID_X}" y="92" font-family="{font}" font-size="13" font-weight="600" fill="#ffffff">'
-      f'{total} contributions in the past year</text>')
+      f'{total} contribution{"" if total == 1 else "s"} across {active_days} active day{"" if active_days == 1 else "s"}</text>')
 
     # legend (default blue palette)
     sq_right = right - 34
