@@ -213,9 +213,18 @@ def build(name, picture):
       f'font-weight="700" fill="#ffffff">{"".join(spans)}</text>')
 
     # the blinking cursor: invisible copies of the first k letters keep its place; only one copy shows at a time
+    # the cursor jumps one place AS a letter starts to appear (typing) or to vanish (erasing), so a
+    # letter is always on the LEFT of the cursor, never behind it
+    cw = {k: [] for k in range(n + 1)}
+    for k in range(1, n):
+        cw[k].append(((k - 1) * TYPE_STEP, k * TYPE_STEP))                    # typing
+    cw[n].append(((n - 1) * TYPE_STEP, t0))                                   # typing + hold
+    for j in range(1, n):
+        cw[n - j].append((t0 + (j - 1) * ERASE_STEP, t0 + j * ERASE_STEP))   # erasing
+    cw[0].append((t0 + (n - 1) * ERASE_STEP, T))                              # empty, before typing again
     for k in range(n + 1):
         ev = []
-        for w in windows[k]:
+        for w in sorted(cw[k]):
             ev.append((w[0], 1))
             if w[1] < T:
                 ev.append((w[1], 0))
