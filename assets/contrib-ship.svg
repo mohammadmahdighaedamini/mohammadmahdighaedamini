@@ -1867,6 +1867,11 @@
 <animate attributeName="opacity" values="0;0;0.12;1;1" keyTimes="0.00000;0.20215;0.20278;0.21860;1.00000" dur="15.800s" repeatCount="indefinite"/>
 <rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="#28223f"/>
 </g>
+<g transform="translate(729,126)" opacity="0">
+<animateTransform attributeName="transform" type="scale" additive="sum" values="0.18;0.18;1;1" keyTimes="0.00000;0.20278;0.21860;1.00000" dur="15.800s" repeatCount="indefinite"/>
+<animate attributeName="opacity" values="0;0;0.12;1;1" keyTimes="0.00000;0.20215;0.20278;0.21860;1.00000" dur="15.800s" repeatCount="indefinite"/>
+<rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="#28223f"/>
+</g>
 <rect x="711" y="186" width="10" height="10" rx="2.5" fill="#dff4ff" opacity="0">
 <animate attributeName="opacity" values="0;0;0.95;0;0" keyTimes="0.00000;0.63045;0.63108;0.65640;1.00000" dur="15.800s" repeatCount="indefinite"/>
 </rect>
